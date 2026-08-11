@@ -1,0 +1,10 @@
+{
+  "name": "Infinite Breaker · Supreme Edition",
+  "short_name": "Infinite Breaker",
+  "description": "Premium offline-ready brick-breaker roguelite.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#0e0a20",
+  "theme_color": "#ff5d8f",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,38 +1,43 @@
-# Infinite Breaker
+# Infinite Breaker · Supreme Edition
 
-Infinite Breaker is a retro pixel-art brick breaker with two ways to play:
+A premium, offline-ready brick-breaker roguelite built entirely with Next.js, React, TypeScript and Canvas. It needs no database, account, API key, paid asset or third-party runtime service.
 
-- **Campaign:** five lives, branching routes, a full refill and upgrade every ten structures, and a permanent local high score.
-- **Casual:** infinite retries with Chill, Classic, and Chaos presets.
+## Supreme systems
 
-The game is entirely client-side. Progress, settings, high scores, and statistics are stored in the browser with `localStorage`. No account, database, API, or third-party service is required while playing.
+- Campaign with lives, routes, checkpoints, refills, rarity-based upgrades, stacking, rerolls, cursed upgrades and build synergies.
+- Zen, Time Attack, One Ball, Boss Rush, Chaos, Endless Tower, Mirror, Daily Seed and Custom modes.
+- Combo meter, D-to-SSS Style Rank, precision hits, edge saves, Risk Drive and manual Overdrive.
+- 15 advanced block families, multi-phase moving bosses, chain reactions and procedural events.
+- 25 positive and 17 negative power-ups, power evolution and fusion combinations.
+- Destruction particles, trails, damage states, depth motion, weather, screen shake, reactive borders and Perfect Clear presentation.
+- Local collection, cosmetics, achievements, expanded records and last-ten-run history.
+- Fullscreen, reduced motion, high contrast, colorblind symbols, automatic effect quality, interactive tutorial and anti-loop ball correction.
+- Export/import for local saves and installable offline PWA support.
+- Viewport-fit desktop and mobile UI. The mobile control surface below the arena moves the paddle without covering the action.
 
-## Run locally
+## Controls
 
-Requirements: Node.js 22 or newer.
+- Mouse/finger anywhere on the arena: move paddle.
+- Mobile touch zone below the arena: drag anywhere to move paddle.
+- Arrow keys or A/D: move paddle.
+- Space: activate a full Overdrive meter.
+- R: toggle Risk Drive for higher speed and score.
+- P or Escape: pause; Resume has a five-second countdown.
+
+## Local development
+
+Requires Node.js 22 or newer.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local address shown in the terminal.
-
-## Production build
-
-For Vercel, `vercel.json` selects the standard Next.js build:
+## Validation
 
 ```bash
-npx next build
+npm run lint
+npm run build
 ```
 
-## Controls
-
-- Mouse or touch: move the paddle directly.
-- Arrow keys or A/D: move the paddle.
-- P or Escape: pause; resuming starts a five-second countdown.
-- Balls launch automatically in a different random upward direction each time.
-
-## Current milestone
-
-This is the finished `v1.0` archive. It includes Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, responsive controls, both progress displays, ten procedural geometric layout families, five rotating visual worlds, rare events, a subtle animated playfield, safe local-data reset, auto-pause when the tab is hidden, and a five-second resume countdown.
+All progress is stored locally in the browser. The Settings screen can export it to a JSON file, import it on another device, or reset it after a confirmation step.
