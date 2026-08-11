@@ -4,7 +4,7 @@ You only need your existing Git provider account and a Vercel account. The game 
 
 ## 1. Test the game locally
 
-Install Node.js 22 or newer, extract the archive, and open a terminal inside the extracted `Infinite-Breaker-v0.4` folder.
+Install Node.js 22 or newer, extract the archive, and open a terminal inside the extracted `Infinite-Breaker-v1.0` folder.
 
 ```bash
 npm install
@@ -22,7 +22,7 @@ Run these commands inside the extracted project folder:
 ```bash
 git init
 git add .
-git commit -m "Initial Infinite Breaker v0.1"
+git commit -m "Release Infinite Breaker v1.0"
 git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/infinite-breaker.git
 git push -u origin main

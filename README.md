@@ -30,9 +30,9 @@ npx next build
 
 - Mouse or touch: move the paddle directly.
 - Arrow keys or A/D: move the paddle.
-- Escape: pause.
-- Balls launch automatically.
+- P or Escape: pause; resuming starts a five-second countdown.
+- Balls launch automatically in a different random upward direction each time.
 
 ## Current milestone
 
-This is archive `v0.4`. It includes Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, responsive controls, both progress displays, ten procedural geometric layout families, five rotating visual worlds, and rare Power Surge, Glass Garden, Bomb Grid, Moving Lines, and Core Boss events.
+This is the finished `v1.0` archive. It includes Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, responsive controls, both progress displays, ten procedural geometric layout families, five rotating visual worlds, rare events, a subtle animated playfield, safe local-data reset, auto-pause when the tab is hidden, and a five-second resume countdown.

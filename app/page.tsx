@@ -57,6 +57,7 @@ const SAVE_KEY = "infinite-breaker-campaign-v1";
 const HIGH_KEY = "infinite-breaker-high-score-v1";
 const STATS_KEY = "infinite-breaker-stats-v1";
 const SETTINGS_KEY = "infinite-breaker-settings-v1";
+const DEFAULT_SETTINGS: Settings = { music: true, sfx: true, reducedMotion: false };
 
 const EMPTY_STATS: LocalStats = {
   gamesPlayed: 0,
@@ -108,14 +109,15 @@ export default function Home() {
   const [stats, setStats] = useState<LocalStats>(EMPTY_STATS);
   const [savedRun, setSavedRun] = useState<RunSession | null>(null);
   const [lastClear, setLastClear] = useState({ score: 0, level: 1, lives: 5 });
-  const [settings, setSettings] = useState<Settings>({ music: true, sfx: true, reducedMotion: false });
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setHighScore(Number(window.localStorage.getItem(HIGH_KEY) || 0));
       setStats(loadJson(STATS_KEY, EMPTY_STATS));
       setSavedRun(loadJson<RunSession | null>(SAVE_KEY, null));
-      setSettings(loadJson(SETTINGS_KEY, { music: true, sfx: true, reducedMotion: false }));
+      setSettings(loadJson(SETTINGS_KEY, DEFAULT_SETTINGS));
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -249,6 +251,17 @@ export default function Home() {
     const next = { ...settings, ...patch };
     setSettings(next);
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  };
+
+  const resetAllData = () => {
+    [SAVE_KEY, HIGH_KEY, STATS_KEY, SETTINGS_KEY].forEach((key) => window.localStorage.removeItem(key));
+    setHighScore(0);
+    setStats(EMPTY_STATS);
+    setSavedRun(null);
+    setSession(null);
+    setSettings(DEFAULT_SETTINGS);
+    setConfirmReset(false);
+    setView("menu");
   };
 
   return (
@@ -385,7 +398,7 @@ export default function Home() {
                   <InfoBlock n="01" title="MOVE">Guide the paddle with your mouse, finger, or arrow keys. The ball launches automatically.</InfoBlock>
                   <InfoBlock n="02" title="BREAK">Destroy every breakable block. Armored blocks can remain on the field.</InfoBlock>
                   <InfoBlock n="03" title="CATCH">Drops reveal their color while falling: cool colors help, hot purple drops cause temporary trouble.</InfoBlock>
-                  <InfoBlock n="04" title="SURVIVE">Campaign starts with five lives. Lose the final ball and the run ends. Casual never ends.</InfoBlock>
+                  <InfoBlock n="04" title="SURVIVE">Campaign starts with five lives. Lose the final ball and the run ends. Casual never ends. Press P or Escape to pause.</InfoBlock>
                 </div>
                 <div className="legend-row"><span className="legend good">GOOD</span><span className="legend bad">BAD</span><span className="legend heart">EXTRA LIFE</span></div>
               </div>
@@ -400,6 +413,20 @@ export default function Home() {
                   <Toggle label="REDUCED MOTION" value={settings.reducedMotion} onChange={(reducedMotion) => updateSettings({ reducedMotion })} />
                 </div>
                 <p className="settings-note">Progress, settings, scores, and statistics stay on this device.</p>
+                <div className="danger-zone">
+                  {!confirmReset ? (
+                    <button className="reset-button" onClick={() => setConfirmReset(true)}>RESET ALL LOCAL DATA</button>
+                  ) : (
+                    <div className="confirm-reset" role="alert">
+                      <strong>RESET EVERYTHING?</strong>
+                      <p>This deletes campaign progress, high score, settings, and local statistics. This cannot be undone.</p>
+                      <div className="confirm-actions">
+                        <button onClick={() => setConfirmReset(false)}>CANCEL</button>
+                        <button className="danger-confirm" onClick={resetAllData}>YES, RESET</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -418,7 +445,7 @@ export default function Home() {
             )}
           </section>
 
-          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>PLAYER ONE READY</b><span>V0.4</span></footer>
+          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>PLAYER ONE READY</b><span>V1.0</span></footer>
         </div>
       )}
     </main>

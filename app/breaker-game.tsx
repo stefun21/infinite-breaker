@@ -99,6 +99,19 @@ function mulberry32(seed: number) {
 
 function hasUpgrade(upgrades: UpgradeId[], id: UpgradeId) { return upgrades.includes(id); }
 
+function randomLaunchBall(x: number, speed: number, delay: number): Ball {
+  const angleFromVertical = 0.34 + Math.random() * 0.48;
+  const direction = Math.random() < 0.5 ? -1 : 1;
+  return {
+    x,
+    y: H - 70,
+    vx: Math.sin(angleFromVertical) * speed * direction,
+    vy: -Math.cos(angleFromVertical) * speed,
+    r: 7,
+    stuckUntil: performance.now() + delay,
+  };
+}
+
 function choosePower(rng: () => number, session: RunSession, forceGood = false): PowerKind {
   if (session.mode === "campaign" && rng() < (hasUpgrade(session.upgrades, "heart-hunter") ? 0.11 : 0.035)) return "life";
   const goodChance = forceGood || !session.badPowerups ? 1 : session.route === "safe" ? 0.82 : session.route === "risky" ? 0.58 : 0.7;
@@ -175,10 +188,9 @@ function generateBricks(session: RunSession): Brick[] {
 function initialRuntime(session: RunSession): GameRuntime {
   const baseW = hasUpgrade(session.upgrades, "wide-start") || session.casualStyle === "chill" ? 168 : 132;
   const speed = session.route === "safe" ? 330 : session.route === "risky" ? 430 : 375;
-  const angle = -Math.PI * 0.36;
-  const first: Ball = { x: W / 2, y: H - 70, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 7, stuckUntil: performance.now() + 650 };
+  const first = randomLaunchBall(W / 2, speed, 650);
   const balls = [first];
-  if (hasUpgrade(session.upgrades, "ball-insurance")) balls.push({ ...first, vx: -first.vx });
+  if (hasUpgrade(session.upgrades, "ball-insurance")) balls.push(randomLaunchBall(W / 2, speed, 650));
   const now = performance.now();
   return {
     paddleX: W / 2, targetX: W / 2, paddleW: baseW, balls, bricks: generateBricks(session), drops: [], bullets: [],
@@ -214,6 +226,7 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
   const synth = useRef(new MiniSynth());
   const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0, bricksLeft: 0, totalBricks: 0 });
   const [paused, setPaused] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const pausedRef = useRef(false);
   const [toast, setToast] = useState("");
   const callbacks = useRef({ onHighScore, onLevelClear, onGameOver });
@@ -228,6 +241,35 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
     synth.current.ensure();
     if (settings.music) synth.current.startMusic();
   }, [settings.music]);
+
+  const beginResume = useCallback(() => {
+    audioReady();
+    setCountdown((value) => value ?? 5);
+  }, [audioReady]);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    const timer = window.setTimeout(() => {
+      if (countdown <= 1) {
+        setCountdown(null);
+        setPaused(false);
+      } else {
+        setCountdown(countdown - 1);
+      }
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [countdown]);
+
+  useEffect(() => {
+    const pauseWhenHidden = () => {
+      if (document.hidden) {
+        setCountdown(null);
+        setPaused(true);
+      }
+    };
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    return () => document.removeEventListener("visibilitychange", pauseWhenHidden);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -248,7 +290,7 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
 
     const spawnBall = (delay = 650) => {
       const speed = session.route === "safe" ? 330 : session.route === "risky" ? 430 : 375;
-      g.balls.push({ x: g.paddleX, y: H - 70, vx: speed * 0.62, vy: -speed * 0.78, r: 7, stuckUntil: performance.now() + delay });
+      g.balls.push(randomLaunchBall(g.paddleX, speed, delay));
     };
 
     const addScore = (amount: number) => {
@@ -420,9 +462,18 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
     const draw = (now: number) => {
       ctx.clearRect(0, 0, W, H);
       ctx.fillStyle = theme.background; ctx.fillRect(0, 0, W, H);
+      const motionTime = settings.reducedMotion ? 0 : now;
+      for (let i = 0; i < 30; i++) {
+        const depth = (i % 3) + 1;
+        const x = (i * 137 + motionTime * 0.006 * depth) % W;
+        const y = (i * 83 + motionTime * 0.0025 * depth) % H;
+        ctx.fillStyle = depth === 3 ? "rgba(255,255,255,.18)" : depth === 2 ? theme.haze[1] : theme.haze[0];
+        ctx.fillRect(x, y, depth === 3 ? 2 : 1, depth === 3 ? 2 : 1);
+      }
       ctx.strokeStyle = theme.grid; ctx.lineWidth = 1;
-      for (let x = 0; x < W; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-      for (let y = 0; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      const gridOffset = (motionTime * 0.008) % 32;
+      for (let x = -32 + gridOffset; x < W; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = -32 + gridOffset; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
       const horizon = ctx.createLinearGradient(0, 0, 0, H); horizon.addColorStop(0, theme.haze[0]); horizon.addColorStop(.45, "rgba(255,255,255,.015)"); horizon.addColorStop(1, theme.haze[1]);
       ctx.fillStyle = horizon; ctx.fillRect(0, 0, W, H);
 
@@ -489,7 +540,17 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
     };
     const move = (e: PointerEvent) => point(e.clientX);
     const down = (e: PointerEvent) => { audioReady(); point(e.clientX); };
-    const keyDown = (e: KeyboardEvent) => { g.keys.add(e.code); if (e.code === "Escape") setPaused((v) => !v); };
+    const keyDown = (e: KeyboardEvent) => {
+      g.keys.add(e.code);
+      if ((e.code === "Escape" || e.code === "KeyP") && !e.repeat) {
+        e.preventDefault();
+        if (pausedRef.current) beginResume();
+        else {
+          setCountdown(null);
+          setPaused(true);
+        }
+      }
+    };
     const keyUp = (e: KeyboardEvent) => g.keys.delete(e.code);
     canvas.addEventListener("pointermove", move); canvas.addEventListener("pointerdown", down);
     window.addEventListener("keydown", keyDown); window.addEventListener("keyup", keyUp);
@@ -498,7 +559,7 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
       cancelAnimationFrame(frame); canvas.removeEventListener("pointermove", move); canvas.removeEventListener("pointerdown", down);
       window.removeEventListener("keydown", keyDown); window.removeEventListener("keyup", keyUp); synthEngine.stop();
     };
-  }, [audioReady, session, settings.sfx]);
+  }, [audioReady, beginResume, session, settings.reducedMotion, settings.sfx]);
 
   const structureProgress = hud.totalBricks > 0
     ? Math.max(0, Math.min(100, Math.round(((hud.totalBricks - hud.bricksLeft) / hud.totalBricks) * 100)))
@@ -507,7 +568,7 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
   return (
     <div className="game-page">
       <header className="game-hud">
-        <button className="hud-exit" onClick={() => setPaused(true)}>Ⅱ</button>
+        <button className="hud-exit" aria-label="Pause game" onClick={() => { setCountdown(null); setPaused(true); }}>Ⅱ</button>
         <div><span>MODE</span><strong>{session.mode.toUpperCase()}</strong></div>
         <div><span>STRUCTURE</span><strong>{String(session.level).padStart(2, "0")}</strong></div>
         <div className="hud-score"><span>SCORE</span><strong>{hud.score.toLocaleString("en-US").padStart(8, "0")}</strong></div>
@@ -533,12 +594,25 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
         {levelEvent && <div className="event-label">EVENT · {levelEvent}</div>}
         {toast && <div className={`game-toast ${toast.includes("HIGH") ? "record" : ""}`}>{toast}</div>}
         {paused && (
-          <div className="pause-overlay">
-            <div className="pause-card"><p>GAME PAUSED</p><h2>TAKE FIVE</h2><button className="big-action" onClick={() => { audioReady(); setPaused(false); }}>RESUME</button><button className="text-button" onClick={() => onExit({ score: hud.score, lives: hud.lives })}>SAVE & EXIT</button></div>
+          <div className={`pause-overlay ${countdown !== null ? "counting" : ""}`}>
+            {countdown === null ? (
+              <div className="pause-card">
+                <p>GAME PAUSED</p><h2>TAKE FIVE</h2>
+                <button className="big-action" onClick={beginResume}>RESUME</button>
+                <button className="text-button" onClick={() => onExit({ score: hud.score, lives: hud.lives })}>SAVE & EXIT</button>
+                <small>P / ESC · RESUME WITH COUNTDOWN</small>
+              </div>
+            ) : (
+              <div className="countdown-card" aria-live="assertive">
+                <p>GET READY</p>
+                <strong className="countdown-number">{countdown}</strong>
+                <span>LOCATE THE BALL AND PADDLE</span>
+              </div>
+            )}
           </div>
         )}
       </div>
-      <footer className="game-footer"><span>AUTO-LAUNCH ENABLED</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${session.casualStyle.toUpperCase()} · INFINITE PLAY`}</b><span>ESC TO PAUSE</span></footer>
+      <footer className="game-footer"><span>RANDOM AUTO-LAUNCH</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${session.casualStyle.toUpperCase()} · INFINITE PLAY`}</b><span>P / ESC TO PAUSE</span></footer>
     </div>
   );
 }

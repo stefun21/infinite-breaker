@@ -47,12 +47,13 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 .menu-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .score-strip { width: min(530px, 100%); display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 8px 13px; color: var(--orange); border-bottom: 2px solid rgba(255,184,77,.35); font-size: 11px; letter-spacing: .12em; }
 .score-strip strong { color: var(--cream); font-size: 17px; letter-spacing: .12em; }
-.menu-list { width: min(500px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.menu-button { grid-column: span 2; min-height: 47px; border: 3px solid var(--pink); background: #281741; color: var(--cream); text-align: left; padding: 8px 20px; cursor: pointer; font-weight: 900; letter-spacing: .08em; box-shadow: 4px 4px 0 #05030a; transition: transform .12s, background .12s, color .12s; }
+.menu-list { width: min(500px, 100%); display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; }
+.menu-button { grid-column: span 6; min-height: 47px; border: 3px solid var(--pink); background: #281741; color: var(--cream); text-align: left; padding: 8px 20px; cursor: pointer; font-weight: 900; letter-spacing: .08em; box-shadow: 4px 4px 0 #05030a; transition: transform .12s, background .12s, color .12s; }
 .menu-button:hover:not(:disabled) { transform: translate(-2px,-2px); background: var(--pink); color: var(--ink); box-shadow: 6px 6px 0 #05030a; }
 .menu-button span { color: var(--orange); display: inline-block; width: 34px; text-align: center; }
 .menu-button.primary { border-color: var(--mint); }
-.menu-button.small { grid-column: span 1; font-size: 11px; padding: 8px 11px; border-color: #8061a8; }
+.menu-button.small { grid-column: span 2; font-size: 10px; padding: 8px 8px; border-color: #8061a8; text-align: center; }
+.menu-button.small span { width: 22px; }
 .menu-button:disabled { opacity: .33; cursor: not-allowed; }
 .screen-hint { color: #9d86bd; font-size: 10px; letter-spacing: .16em; margin: 22px 0 0; }
 
@@ -128,6 +129,15 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 .toggle-row em { font-style: normal; color: var(--orange); font-size: 10px; text-align: right; }
 .settings-list { position: relative; z-index: 1; max-width: 540px; margin: 20px auto; }
 .settings-note { text-align: center; color: #927ba9; font-size: 10px; margin-top: 32px; }
+.danger-zone { position: relative; z-index: 2; width: min(540px,100%); margin: 24px auto 0; padding-top: 18px; border-top: 2px dashed #543452; text-align: center; }
+.reset-button { border: 2px solid #8d4662; background: transparent; color: #d78aa7; padding: 10px 16px; font-size: 9px; font-weight: 900; letter-spacing: .1em; cursor: pointer; }
+.reset-button:hover { border-color: var(--pink); color: var(--cream); background: rgba(255,93,143,.12); }
+.confirm-reset { padding: 15px; border: 3px solid var(--pink); background: #240f27; box-shadow: 5px 5px 0 #05030a; }
+.confirm-reset strong { color: var(--pink); font-size: 13px; letter-spacing: .1em; }
+.confirm-reset p { color: #d2bfd5; font-size: 9px; line-height: 1.55; }
+.confirm-actions { display: flex; justify-content: center; gap: 10px; }
+.confirm-actions button { border: 2px solid #745777; background: #1a102d; color: var(--cream); padding: 9px 13px; cursor: pointer; font-size: 9px; font-weight: 900; }
+.confirm-actions .danger-confirm { border-color: var(--pink); background: var(--pink); color: var(--ink); }
 
 .instruction-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .info-block { position: relative; min-height: 120px; border: 2px solid #4a3469; padding: 17px 16px 14px 54px; background: rgba(28,16,52,.7); }
@@ -167,6 +177,12 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 .pause-overlay { position: absolute; inset: 8px; display: grid; place-items: center; background: rgba(14,10,32,.82); backdrop-filter: blur(3px); }
 .pause-card { width: min(400px,90%); padding: 35px; border: 4px solid var(--pink); background: var(--deep); text-align: center; box-shadow: 8px 8px 0 #05030a; }
 .pause-card p { color: var(--orange); font-size: 10px; letter-spacing: .18em; }.pause-card h2 { margin: 8px 0 26px; color: var(--cream); font: 42px Impact,sans-serif; letter-spacing: .08em; }
+.pause-card small { display: block; margin-top: 20px; color: #806995; font-size: 8px; letter-spacing: .1em; }
+.pause-overlay.counting { background: rgba(14,10,32,.34); backdrop-filter: blur(1px); }
+.countdown-card { min-width: 270px; padding: 20px 28px; border: 3px solid var(--mint); background: rgba(14,10,32,.82); text-align: center; box-shadow: 7px 7px 0 #05030a; }
+.countdown-card p { margin: 0; color: var(--orange); font-size: 11px; font-weight: 900; letter-spacing: .2em; }
+.countdown-number { display: block; margin: 5px 0; color: var(--cream); font: 84px/1 Impact,sans-serif; text-shadow: 5px 5px 0 var(--violet); }
+.countdown-card span { color: var(--mint); font-size: 8px; letter-spacing: .13em; }
 .game-footer { display: flex; justify-content: space-between; gap: 14px; margin-top: 20px; color: #88729d; font-size: 9px; }.game-footer b { color: var(--mint); }
 
 @media (max-width: 760px) {
@@ -186,7 +202,7 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 
 @media (max-width: 520px) {
   .arcade-panel { padding: 6px; border-width: 3px; }
-  .menu-button.small { grid-column: span 2; }
+  .menu-button.small { grid-column: span 6; text-align: left; font-size: 11px; }
   .instruction-grid, .stats-grid { grid-template-columns: 1fr; }
   .scroll-screen { max-height: 70vh; overflow-y: auto; }
   .result-grid { grid-template-columns: 1fr; }.result-grid span { border-bottom: 1px solid #3d2d56; }
