@@ -401,7 +401,7 @@ export default function Home() {
             )}
           </section>
 
-          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>PLAYER ONE READY</b><span>V0.1</span></footer>
+          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>PLAYER ONE READY</b><span>V0.2</span></footer>
         </div>
       )}
     </main>

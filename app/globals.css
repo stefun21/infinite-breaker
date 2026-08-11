@@ -126,6 +126,12 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 .game-hud span { display: block; color: #8f77a9; font-size: 8px; letter-spacing: .1em; }.game-hud strong { display: block; color: var(--cream); margin-top: 5px; font-size: 13px; white-space: nowrap; }.game-hud > div:last-child strong { color: var(--pink); letter-spacing: 2px; }
 .game-hud .hud-score { border-color: var(--orange); }.game-hud .hud-score strong { color: var(--orange); font-size: 17px; letter-spacing: .08em; }
 .hud-exit { color: var(--orange); cursor: pointer; font-size: 17px; }
+.structure-progress { margin: 0 0 10px; padding: 9px 11px 10px; border: 2px solid #62427c; background: #1c1034; box-shadow: 3px 3px 0 #05030a; }
+.progress-copy { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 18px; margin-bottom: 7px; font-size: 9px; letter-spacing: .09em; }
+.progress-copy span { color: #8f77a9; }.progress-copy strong { color: var(--cream); }.progress-copy em { color: var(--mint); font-style: normal; font-weight: 900; }
+.progress-track { position: relative; height: 15px; overflow: hidden; border: 2px solid var(--ink); background: #35234f; box-shadow: inset 0 0 0 2px rgba(0,0,0,.18); }
+.progress-track i { display: block; height: 100%; min-width: 0; background: repeating-linear-gradient(90deg, var(--pink) 0 18px, var(--orange) 18px 21px); transition: width .18s steps(5,end); }
+.progress-track b { position: absolute; inset: 0; display: grid; place-items: center; color: var(--cream); font-size: 8px; line-height: 1; text-shadow: 1px 1px 0 var(--ink); }
 .game-frame { position: relative; border: 6px solid var(--cream); background: var(--pink); padding: 8px; box-shadow: 10px 10px 0 #05030a, 15px 15px 0 rgba(176,92,255,.5); }
 .game-frame canvas { display: block; width: 100%; height: auto; border: 4px solid var(--ink); background: var(--ink); touch-action: none; cursor: crosshair; image-rendering: pixelated; }
 .corner-label { position: absolute; top: 22px; padding: 5px 9px; background: rgba(14,10,32,.78); color: var(--orange); font-size: 9px; border: 1px solid rgba(255,184,77,.5); }.top-left{left:22px}.top-right{right:22px}
@@ -146,6 +152,7 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
   .choice-card .choice-icon { grid-row: span 2; margin: 0; text-align: center; }.choice-card small { margin: 4px 0 0; }
   .game-hud { grid-template-columns: 42px repeat(3,1fr); }.game-hud > div:nth-of-type(1), .game-hud > div:nth-of-type(4) { display: none; }
   .game-hud strong { font-size: 11px; }.game-hud .hud-score strong { font-size: 12px; }
+  .progress-copy { grid-template-columns: 1fr auto; gap: 8px; }.progress-copy em { display: none; }
   .game-footer { font-size: 7px; }.game-footer span:first-child { display: none; }
 }
 

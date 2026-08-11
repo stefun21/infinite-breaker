@@ -177,7 +177,7 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtime = useRef<GameRuntime | null>(null);
   const synth = useRef(new MiniSynth());
-  const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0 });
+  const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0, bricksLeft: 0, totalBricks: 0 });
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   const [toast, setToast] = useState("");
@@ -431,7 +431,18 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
       const dt = Math.min(0.025, Math.max(0, (now - g.lastTime) / 1000)); g.lastTime = now;
       if (!pausedRef.current && !g.ended) update(now, dt);
       draw(now);
-      if (now - hudTimer > 100) { hudTimer = now; setHud({ score: g.score, lives: g.lives, balls: g.balls.length, combo: g.combo }); }
+      if (now - hudTimer > 100) {
+        hudTimer = now;
+        const breakable = g.bricks.filter((brick) => brick.type !== "armored");
+        setHud({
+          score: g.score,
+          lives: g.lives,
+          balls: g.balls.length,
+          combo: g.combo,
+          bricksLeft: breakable.filter((brick) => brick.hp > 0).length,
+          totalBricks: breakable.length,
+        });
+      }
       frame = requestAnimationFrame(loop);
     };
 
@@ -451,6 +462,10 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
     };
   }, [audioReady, session, settings.sfx]);
 
+  const structureProgress = hud.totalBricks > 0
+    ? Math.max(0, Math.min(100, Math.round(((hud.totalBricks - hud.bricksLeft) / hud.totalBricks) * 100)))
+    : 0;
+
   return (
     <div className="game-page">
       <header className="game-hud">
@@ -461,6 +476,17 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
         <div><span>HIGH</span><strong>{Math.max(highScore, hud.score).toLocaleString("en-US")}</strong></div>
         <div><span>{session.mode === "campaign" ? "LIVES" : "BALLS"}</span><strong>{session.mode === "campaign" ? "♥".repeat(Math.max(0, Math.min(7, hud.lives))) : hud.balls}</strong></div>
       </header>
+      <section className="structure-progress" aria-label={`${hud.bricksLeft} destructible blocks remaining`}>
+        <div className="progress-copy">
+          <span>STRUCTURE PROGRESS</span>
+          <strong>{hud.bricksLeft} BLOCKS LEFT</strong>
+          <em>{structureProgress}% CLEARED</em>
+        </div>
+        <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={structureProgress}>
+          <i style={{ width: `${structureProgress}%` }} />
+          <b>{structureProgress}%</b>
+        </div>
+      </section>
       <div className="game-frame">
         <canvas ref={canvasRef} width={W} height={H} aria-label="Infinite Breaker game area" />
         <div className="corner-label top-left">{session.route.toUpperCase()} ROUTE</div>

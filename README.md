@@ -35,4 +35,4 @@ npx next build
 
 ## Current milestone
 
-This is the first playable archive (`v0.1`). It includes the selected visual direction, procedural geometric structures, Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, and responsive controls.
+This is archive `v0.2`. It includes the selected visual direction, procedural geometric structures, Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, responsive controls, and a live structure progress bar with the exact number of destructible blocks remaining.

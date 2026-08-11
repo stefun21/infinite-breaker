@@ -4,7 +4,7 @@ You only need your existing Git provider account and a Vercel account. The game 
 
 ## 1. Test the game locally
 
-Install Node.js 22 or newer, extract the archive, and open a terminal inside the extracted `Infinite-Breaker-v0.1` folder.
+Install Node.js 22 or newer, extract the archive, and open a terminal inside the extracted `Infinite-Breaker-v0.2` folder.
 
 ```bash
 npm install
