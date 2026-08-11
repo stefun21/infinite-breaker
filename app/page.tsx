@@ -92,6 +92,15 @@ function zoneFor(level: number) {
   return zones[Math.floor((level - 1) / 10) % zones.length];
 }
 
+function eventFor(level: number) {
+  if (level % 10 === 0) return "CORE BOSS";
+  if (level % 11 === 0) return "POWER SURGE";
+  if (level % 9 === 0) return "GLASS GARDEN";
+  if (level % 8 === 0) return "BOMB GRID";
+  if (level % 7 === 0) return "MOVING LINES";
+  return null;
+}
+
 export default function Home() {
   const [view, setView] = useState<View>("menu");
   const [session, setSession] = useState<RunSession | null>(null);
@@ -295,6 +304,8 @@ export default function Home() {
                   <strong>{zoneFor(session.level)}</strong>
                   <em>STRUCTURE {session.level}</em>
                 </div>
+                {eventFor(session.level) && <div className="map-event">SPECIAL EVENT · <b>{eventFor(session.level)}</b></div>}
+                <ZoneTrack level={session.level} />
                 <div className="route-grid">
                   <ChoiceCard icon="○" title="SAFE" tone="mint" onClick={() => startRoute("safe")}>
                     Slower ball · more good drops<br /><b>Score × 0.85</b>
@@ -311,6 +322,11 @@ export default function Home() {
                   <span>SCORE <b>{session.score.toLocaleString("en-US")}</b></span>
                   <span>UPGRADES <b>{session.upgrades.length}</b></span>
                 </div>
+                {session.upgrades.length > 0 && (
+                  <div className="active-upgrades" aria-label="Active campaign upgrades">
+                    {session.upgrades.map((id) => <span key={id}>{UPGRADE_INFO[id].icon} {UPGRADE_INFO[id].title}</span>)}
+                  </div>
+                )}
               </div>
             )}
 
@@ -327,6 +343,7 @@ export default function Home() {
                   <span>{session.mode === "campaign" ? "LIVES" : "MODE"}<strong>{session.mode === "campaign" ? lastClear.lives : "∞"}</strong></span>
                   <span>NEXT<strong>{lastClear.level + 1}</strong></span>
                 </div>
+                {session.mode === "campaign" && <CheckpointProgress completed={lastClear.level % 10} />}
                 <button className="big-action" onClick={nextAfterResults}>{session.mode === "campaign" ? "CHOOSE NEXT ROUTE" : "NEXT STRUCTURE"} ▶</button>
                 <button className="text-button" onClick={() => setView("menu")}>RETURN TO MENU</button>
               </div>
@@ -401,7 +418,7 @@ export default function Home() {
             )}
           </section>
 
-          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>PLAYER ONE READY</b><span>V0.2</span></footer>
+          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>PLAYER ONE READY</b><span>V0.4</span></footer>
         </div>
       )}
     </main>
@@ -414,6 +431,35 @@ function ScreenHeader({ title, onBack }: { title: string; onBack?: () => void })
 
 function ChoiceCard({ icon, title, tone, onClick, children }: { icon: string; title: string; tone: string; onClick: () => void; children: React.ReactNode }) {
   return <button className={`choice-card ${tone}`} onClick={onClick}><span className="choice-icon">{icon}</span><strong>{title}</strong><small>{children}</small></button>;
+}
+
+function ZoneTrack({ level }: { level: number }) {
+  const current = ((level - 1) % 10) + 1;
+  return (
+    <div className="zone-track-wrap" aria-label={`Zone progress: structure ${current} of 10`}>
+      <div className="zone-track-line" aria-hidden="true">
+        <i style={{ width: `${((current - 1) / 9) * 100}%` }} />
+      </div>
+      <div className="zone-nodes">
+        {Array.from({ length: 10 }, (_, index) => {
+          const step = index + 1;
+          const state = step < current ? "done" : step === current ? "current" : "upcoming";
+          return <span key={step} className={`${state} ${step === 10 ? "boss" : ""}`}><b>{step === 10 ? "B" : step}</b><em>{step < current ? "✓" : step === current ? "YOU" : ""}</em></span>;
+        })}
+      </div>
+      <div className="zone-track-caption"><span>ZONE START</span><strong>{10 - current} UNTIL BOSS</strong><span>CHECKPOINT + REFILL</span></div>
+    </div>
+  );
+}
+
+function CheckpointProgress({ completed }: { completed: number }) {
+  return (
+    <div className="checkpoint-progress" aria-label={`${completed} of 10 structures cleared in this zone`}>
+      <div><span>ZONE PROGRESS</span><b>{completed}/10</b></div>
+      <i><em style={{ width: `${completed * 10}%` }} /></i>
+      <small>{10 - completed} STRUCTURES UNTIL CHECKPOINT</small>
+    </div>
+  );
 }
 
 function CasualSetup({ onBack, onStart }: { onBack: () => void; onStart: (style: CasualStyle, bad: boolean) => void }) {

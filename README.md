@@ -35,4 +35,4 @@ npx next build
 
 ## Current milestone
 
-This is archive `v0.2`. It includes the selected visual direction, procedural geometric structures, Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, responsive controls, and a live structure progress bar with the exact number of destructible blocks remaining.
+This is archive `v0.4`. It includes Campaign and Casual modes, branching routes, local stats, high-score notification, special bricks, positive and negative drops, synthesized arcade audio, responsive controls, both progress displays, ten procedural geometric layout families, five rotating visual worlds, and rare Power Surge, Glass Garden, Bomb Grid, Moving Lines, and Core Boss events.

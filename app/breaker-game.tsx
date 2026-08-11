@@ -53,10 +53,34 @@ interface Props {
   onExit: (snapshot?: { score: number; lives: number }) => void;
 }
 
-const COLORS: Record<BrickType, string> = {
-  normal: "#ff5d8f", reinforced: "#ffb84d", power: "#7cffcb", glass: "#6ee7ff",
-  explosive: "#ff6b35", moving: "#a78bfa", armored: "#49506f", core: "#fff1a6", heart: "#ff3f74",
-};
+interface WorldTheme {
+  name: string;
+  background: string;
+  grid: string;
+  haze: [string, string];
+  accent: string;
+  paddle: string;
+  bricks: Record<BrickType, string>;
+}
+
+const WORLD_THEMES: WorldTheme[] = [
+  { name: "SUNSET GRID", background: "#0e0a20", grid: "rgba(255,93,143,.09)", haze: ["rgba(255,93,143,.13)", "rgba(255,184,77,.08)"], accent: "#ff5d8f", paddle: "#ffb84d", bricks: { normal: "#ff5d8f", reinforced: "#ffb84d", power: "#7cffcb", glass: "#6ee7ff", explosive: "#ff6b35", moving: "#a78bfa", armored: "#49506f", core: "#fff1a6", heart: "#ff3f74" } },
+  { name: "LASER DISTRICT", background: "#061528", grid: "rgba(60,217,255,.10)", haze: ["rgba(55,214,255,.14)", "rgba(255,63,116,.07)"], accent: "#38d9ff", paddle: "#ff4f9a", bricks: { normal: "#38d9ff", reinforced: "#6f8cff", power: "#ffe66d", glass: "#b8f5ff", explosive: "#ff4f9a", moving: "#9b6dff", armored: "#344965", core: "#ffffff", heart: "#ff3f74" } },
+  { name: "VIOLET VAULT", background: "#170829", grid: "rgba(176,92,255,.11)", haze: ["rgba(176,92,255,.16)", "rgba(124,255,203,.06)"], accent: "#b05cff", paddle: "#7cffcb", bricks: { normal: "#b05cff", reinforced: "#ff73c9", power: "#7cffcb", glass: "#9feaff", explosive: "#ff8a4c", moving: "#7d7cff", armored: "#4e3c65", core: "#fff1a6", heart: "#ff4f8a" } },
+  { name: "MINT CIRCUIT", background: "#071c1b", grid: "rgba(124,255,203,.10)", haze: ["rgba(124,255,203,.14)", "rgba(255,184,77,.06)"], accent: "#7cffcb", paddle: "#ffb84d", bricks: { normal: "#7cffcb", reinforced: "#32d9b2", power: "#ffe66d", glass: "#b8fff0", explosive: "#ff7b54", moving: "#45b7d1", armored: "#355b58", core: "#fff1d6", heart: "#ff5d8f" } },
+  { name: "GOLDEN CORE", background: "#211405", grid: "rgba(255,209,102,.10)", haze: ["rgba(255,184,77,.16)", "rgba(255,93,143,.07)"], accent: "#ffd166", paddle: "#ff5d8f", bricks: { normal: "#ffd166", reinforced: "#ff9f43", power: "#7cffcb", glass: "#fff1b8", explosive: "#ff5d5d", moving: "#d990ff", armored: "#68573f", core: "#ffffff", heart: "#ff3f74" } },
+];
+
+function themeFor(level: number) { return WORLD_THEMES[Math.floor((level - 1) / 10) % WORLD_THEMES.length]; }
+
+function eventFor(level: number) {
+  if (level % 10 === 0) return "CORE BOSS";
+  if (level % 11 === 0) return "POWER SURGE";
+  if (level % 9 === 0) return "GLASS GARDEN";
+  if (level % 8 === 0) return "BOMB GRID";
+  if (level % 7 === 0) return "MOVING LINES";
+  return null;
+}
 
 const POWER_LABEL: Record<PowerKind, string> = {
   expand: "WIDE", double: "×2", triple: "×3", slow: "SLOW", sticky: "STICK", fireball: "FIRE",
@@ -92,7 +116,8 @@ function generateBricks(session: RunSession): Brick[] {
   const bh = 24;
   const startX = (W - (bw * cols + gap * (cols - 1))) / 2;
   const startY = 74;
-  const layout = session.level % 5;
+  const layout = session.level % 10;
+  const event = eventFor(session.level);
   const bricks: Brick[] = [];
   let id = 0;
 
@@ -106,6 +131,11 @@ function generateBricks(session: RunSession): Brick[] {
       if (layout === 2) present = nx + Math.abs(ny - 0.45) < 0.94;
       if (layout === 3) present = row % 2 === 0 || col === 0 || col === cols - 1;
       if (layout === 4) present = nx < 0.82 && !(row > 1 && row < rows - 2 && nx < 0.28);
+      if (layout === 5) present = Math.abs(nx + Math.abs(ny - 0.48) - 0.64) < 0.28 || row === rows - 1;
+      if (layout === 6) present = Math.abs(col - row * (cols / rows)) < 1.4 || Math.abs((cols - 1 - col) - row * (cols / rows)) < 1.4;
+      if (layout === 7) present = row >= Math.floor((col % Math.ceil(cols / 3)) / Math.ceil(cols / 3) * rows) || row === 0;
+      if (layout === 8) present = Math.abs(row - (rows * 0.48 + Math.sin(col * 0.85) * rows * 0.28)) < 1.8;
+      if (layout === 9) present = (col < cols * 0.34 || col > cols * 0.66) && !(row === 1 && col % 2 === 0);
       if (!present || rng() < 0.04) continue;
 
       const roll = rng();
@@ -118,6 +148,11 @@ function generateBricks(session: RunSession): Brick[] {
       else if (roll < 0.225 && session.level > 4) type = "armored";
       else if (roll < 0.24 && session.mode === "campaign") type = "heart";
 
+      if (event === "POWER SURGE" && rng() < 0.28) type = "power";
+      if (event === "GLASS GARDEN" && type === "normal" && rng() < 0.56) type = "glass";
+      if (event === "BOMB GRID" && type === "normal" && rng() < 0.42) type = "explosive";
+      if (event === "MOVING LINES" && type === "normal" && rng() < 0.44) type = "moving";
+
       const tougher = session.route === "risky" && rng() < 0.16;
       if (tougher && type === "normal") type = "reinforced";
       const hp = type === "armored" ? 999 : type === "reinforced" ? (session.level > 20 ? 3 : 2) : 1;
@@ -125,7 +160,7 @@ function generateBricks(session: RunSession): Brick[] {
         id: id++, x: startX + col * (bw + gap), y: startY + row * (bh + gap), w: bw, h: bh,
         hp, maxHp: hp, type, vx: type === "moving" ? (rng() > 0.5 ? 26 : -26) : 0,
         hiddenPower: type === "normal" && rng() < (hasUpgrade(session.upgrades, "lucky-bricks") ? 0.095 : 0.05),
-        power: type === "power" || type === "heart" ? (type === "heart" ? "life" : choosePower(rng, session)) : undefined,
+        power: type === "power" || type === "heart" ? (type === "heart" ? "life" : choosePower(rng, session, event === "POWER SURGE")) : undefined,
       });
     }
   }
@@ -183,6 +218,8 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
   const [toast, setToast] = useState("");
   const callbacks = useRef({ onHighScore, onLevelClear, onGameOver });
   const initialHigh = useRef(highScore);
+  const worldTheme = themeFor(session.level);
+  const levelEvent = eventFor(session.level);
 
   useEffect(() => { pausedRef.current = paused; }, [paused]);
   useEffect(() => { callbacks.current = { onHighScore, onLevelClear, onGameOver }; }, [onHighScore, onLevelClear, onGameOver]);
@@ -199,6 +236,7 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
     if (!ctx) return;
     const synthEngine = synth.current;
     const g = initialRuntime(session);
+    const theme = themeFor(session.level);
     runtime.current = g;
     let record = initialHigh.current;
     let frame = 0;
@@ -381,16 +419,16 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
 
     const draw = (now: number) => {
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = "#0e0a20"; ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = "rgba(255,93,143,.08)"; ctx.lineWidth = 1;
+      ctx.fillStyle = theme.background; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = theme.grid; ctx.lineWidth = 1;
       for (let x = 0; x < W; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
       for (let y = 0; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-      const horizon = ctx.createLinearGradient(0, 0, 0, H); horizon.addColorStop(0, "rgba(255,93,143,.09)"); horizon.addColorStop(.45, "rgba(124,255,203,.02)"); horizon.addColorStop(1, "rgba(255,184,77,.08)");
+      const horizon = ctx.createLinearGradient(0, 0, 0, H); horizon.addColorStop(0, theme.haze[0]); horizon.addColorStop(.45, "rgba(255,255,255,.015)"); horizon.addColorStop(1, theme.haze[1]);
       ctx.fillStyle = horizon; ctx.fillRect(0, 0, W, H);
 
       for (const brick of g.bricks) {
         if (brick.hp <= 0) continue;
-        const color = COLORS[brick.type];
+        const color = theme.bricks[brick.type];
         ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(brick.x + 4, brick.y + 5, brick.w, brick.h);
         ctx.fillStyle = color; ctx.fillRect(brick.x, brick.y, brick.w, brick.h);
         ctx.fillStyle = "rgba(255,255,255,.28)"; ctx.fillRect(brick.x + 3, brick.y + 3, brick.w - 6, 3);
@@ -416,12 +454,12 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
 
       const py = H - 52;
       ctx.fillStyle = "#05030c"; ctx.fillRect(g.paddleX - g.paddleW / 2 + 5, py + 7, g.paddleW, 18);
-      ctx.fillStyle = active("shrink", now) ? "#b05cff" : "#ffb84d"; ctx.fillRect(g.paddleX - g.paddleW / 2, py, g.paddleW, 18);
+      ctx.fillStyle = active("shrink", now) ? "#b05cff" : theme.paddle; ctx.fillRect(g.paddleX - g.paddleW / 2, py, g.paddleW, 18);
       ctx.fillStyle = "#fff1a6"; ctx.fillRect(g.paddleX - g.paddleW / 2 + 7, py + 3, g.paddleW - 14, 4);
       if (g.shield > 0) { ctx.strokeStyle = "#7cffcb"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(20, H - 14); ctx.lineTo(W - 20, H - 14); ctx.stroke(); }
 
       for (const ball of g.balls) {
-        ctx.shadowBlur = 16; ctx.shadowColor = active("fireball", now) ? "#ff6b35" : "#ff5d8f";
+        ctx.shadowBlur = 16; ctx.shadowColor = active("fireball", now) ? "#ff6b35" : theme.accent;
         ctx.fillStyle = active("fireball", now) ? "#fff1a6" : "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
       }
       ctx.textAlign = "left";
@@ -491,6 +529,8 @@ export function BreakerGame({ session, highScore, settings, onHighScore, onLevel
         <canvas ref={canvasRef} width={W} height={H} aria-label="Infinite Breaker game area" />
         <div className="corner-label top-left">{session.route.toUpperCase()} ROUTE</div>
         <div className="corner-label top-right">COMBO {hud.combo}</div>
+        <div className="world-label" style={{ borderColor: worldTheme.accent, color: worldTheme.accent }}>{worldTheme.name}</div>
+        {levelEvent && <div className="event-label">EVENT · {levelEvent}</div>}
         {toast && <div className={`game-toast ${toast.includes("HIGH") ? "record" : ""}`}>{toast}</div>}
         {paused && (
           <div className="pause-overlay">
