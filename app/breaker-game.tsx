@@ -258,6 +258,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
   const [countdown, setCountdown] = useState<number | null>(null);
   const pausedRef = useRef(false);
   const [toast, setToast] = useState("");
+  const [fullscreen, setFullscreen] = useState(false);
   const [tutorial, setTutorial] = useState(() => typeof window !== "undefined" && !localStorage.getItem("infinite-breaker-tutorial-v2") ? 1 : 0);
   const controlRef = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onHighScore, onLevelClear, onGameOver });
@@ -277,6 +278,26 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
     audioReady();
     setCountdown((value) => value ?? 5);
   }, [audioReady]);
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      setToast("FULLSCREEN NOT AVAILABLE");
+      window.setTimeout(() => setToast(""), 1600);
+    }
+  }, []);
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      setFullscreen(Boolean(document.fullscreenElement));
+      setCountdown(null);
+      setPaused(true);
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
 
   useEffect(() => {
     if (countdown === null) return;
@@ -755,18 +776,21 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
       }
       if (e.code === "Space" && !e.repeat) { e.preventDefault(); if (!launchBalls()) activateOverdrive(); }
       if (e.code === "KeyR" && !e.repeat) { g.riskBoost = !g.riskBoost; setToast(g.riskBoost ? "RISK DRIVE · SCORE ×1.3" : "RISK DRIVE OFF"); }
+      if (e.code === "KeyF" && !e.repeat) { e.preventDefault(); void toggleFullscreen(); }
     };
     const keyUp = (e: KeyboardEvent) => g.keys.delete(e.code);
     canvas.addEventListener("pointermove", move); canvas.addEventListener("pointerdown", down);
+    canvas.addEventListener("dblclick", toggleFullscreen);
     control?.addEventListener("pointermove", controlMove); control?.addEventListener("pointerdown", controlDown);
     window.addEventListener("keydown", keyDown); window.addEventListener("keyup", keyUp);
     frame = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(frame); canvas.removeEventListener("pointermove", move); canvas.removeEventListener("pointerdown", down);
+      canvas.removeEventListener("dblclick", toggleFullscreen);
       control?.removeEventListener("pointermove", controlMove); control?.removeEventListener("pointerdown", controlDown);
       window.removeEventListener("keydown", keyDown); window.removeEventListener("keyup", keyUp); synthEngine.stop();
     };
-  }, [audioReady, beginResume, cosmetics, session, settings.quality, settings.reducedMotion, settings.screenShake, settings.sfx]);
+  }, [audioReady, beginResume, cosmetics, session, settings.quality, settings.reducedMotion, settings.screenShake, settings.sfx, toggleFullscreen]);
 
   const structureProgress = hud.totalBricks > 0
     ? Math.max(0, Math.min(100, Math.round(((hud.totalBricks - hud.bricksLeft) / hud.totalBricks) * 100)))
@@ -776,6 +800,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
     <div className="game-page">
       <header className="game-hud">
         <button className="hud-exit" aria-label="Pause game" onClick={() => { setCountdown(null); setPaused(true); }}>Ⅱ</button>
+        <button className={`hud-fullscreen ${fullscreen ? "active" : ""}`} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"} onClick={() => void toggleFullscreen()}>⛶</button>
         <div><span>MODE</span><strong>{(session.variant || session.mode).toUpperCase()}</strong></div>
         <div><span>STRUCTURE</span><strong>{String(session.level).padStart(2, "0")}</strong></div>
         <div className="hud-score"><span>SCORE</span><strong>{hud.score.toLocaleString("en-US").padStart(8, "0")}</strong></div>
@@ -824,7 +849,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
         )}
       </div>
       <div ref={controlRef} className="mobile-control-zone" aria-label="Touch paddle control area"><span>{hud.awaitingLaunch ? "TAP HERE TO LAUNCH · DRAG TO MOVE" : "DRAG ANYWHERE HERE TO MOVE"}</span><i /><button onPointerDown={(e) => e.stopPropagation()} disabled={hud.overdrive < 100 || hud.awaitingLaunch} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡</button></div>
-      <footer className="game-footer"><span>MANUAL LAUNCH · 7S AUTO · R RISK</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE LAUNCH/OVERDRIVE</span></footer>
+      <footer className="game-footer"><span>F FULLSCREEN · DOUBLE-CLICK SCENE</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE LAUNCH/OVERDRIVE</span></footer>
     </div>
   );
 }

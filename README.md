@@ -24,6 +24,7 @@ A premium, offline-ready brick-breaker roguelite built entirely with Next.js, Re
 - Space: activate a full Overdrive meter.
 - R: toggle Risk Drive for higher speed and score.
 - P or Escape: pause; Resume has a five-second countdown.
+- F or the small HUD button: enter or exit fullscreen. Double-clicking the arena also toggles fullscreen.
 
 ## Local development
 
@@ -48,3 +49,9 @@ All progress is stored locally in the browser. The Settings screen can export it
 - Shield and Bottom Wall now perform a real physical bounce before the ball can leave the playfield.
 - Every fresh ball waits for player input and shows its planned direction plus a seven-second auto-launch countdown.
 - If one destructible block remains untouched for twenty seconds, Last Brick Assist destroys it with a lightning strike, particles, flash and camera shake.
+
+## Version 2.2
+
+- Added a compact, state-aware fullscreen button to the in-game HUD.
+- Added the F keyboard shortcut and double-click arena shortcut for fullscreen.
+- Entering or leaving fullscreen safely pauses the game, preventing accidental ball loss during the display transition.

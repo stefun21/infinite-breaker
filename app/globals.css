@@ -181,11 +181,15 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 
 .game-view { padding:8px; display:grid; place-items:center; overflow:hidden; }
 .game-page { position: relative; z-index: 2; width:min(1120px,100%); height:100%; margin:0 auto; display:grid; grid-template-rows:auto auto minmax(0,1fr) auto; gap:6px; }
-.game-hud { display: grid; grid-template-columns: 54px repeat(5,1fr); gap: 7px; margin-bottom: 10px; }
-.game-hud > div, .hud-exit { min-height: 51px; border: 2px solid #62427c; background: #1c1034; padding: 7px 10px; box-shadow: 3px 3px 0 #05030a; }
+.game-hud { display: grid; grid-template-columns: 48px 48px repeat(5,1fr); gap: 7px; margin-bottom: 10px; }
+.game-hud > div, .hud-exit, .hud-fullscreen { min-height: 51px; border: 2px solid #62427c; background: #1c1034; padding: 7px 10px; box-shadow: 3px 3px 0 #05030a; }
 .game-hud span { display: block; color: #8f77a9; font-size: 8px; letter-spacing: .1em; }.game-hud strong { display: block; color: var(--cream); margin-top: 5px; font-size: 13px; white-space: nowrap; }.game-hud > div:last-child strong { color: var(--pink); letter-spacing: 2px; }
 .game-hud .hud-score { border-color: var(--orange); }.game-hud .hud-score strong { color: var(--orange); font-size: 17px; letter-spacing: .08em; }
-.hud-exit { color: var(--orange); cursor: pointer; font-size: 17px; }
+.hud-exit, .hud-fullscreen { display:grid; place-items:center; color:var(--orange); cursor:pointer; font-size:17px; transition:background .12s,color .12s,transform .12s; }
+.hud-fullscreen { color:var(--mint); font-size:20px; }
+.hud-exit:hover, .hud-fullscreen:hover { transform:translateY(-2px); background:#30204b; }
+.hud-fullscreen.active { border-color:var(--mint); background:#17352f; box-shadow:3px 3px 0 #05030a,0 0 13px rgba(124,255,203,.2); }
+:fullscreen .game-view { background:#07040d; }
 .structure-progress { margin:0; padding:7px 10px; border: 2px solid #62427c; background: #1c1034; box-shadow: 3px 3px 0 #05030a; }
 .progress-copy { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 18px; margin-bottom: 7px; font-size: 9px; letter-spacing: .09em; }
 .progress-copy span { color: #8f77a9; }.progress-copy strong { color: var(--cream); }.progress-copy em { color: var(--mint); font-style: normal; font-weight: 900; }
@@ -238,7 +242,7 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
   .stats-grid{grid-template-columns:repeat(4,1fr);gap:4px}.stat-card{padding:8px 5px}.stat-card span{font-size:6px}.stat-card strong{font-size:13px;margin-top:3px}.history-list{margin-top:6px}.history-list>span{padding:3px;font-size:6px}
   .settings-list{margin:0 auto}.toggle-row{padding:6px 3px;font-size:8px;grid-template-columns:1fr 43px 30px}.toggle-row b{width:40px;height:20px}.toggle-row b i{width:12px;height:12px}.toggle-row b.on i{transform:translateX(20px)}.range-row{padding:6px 3px;font-size:8px;grid-template-columns:1fr 110px 32px}.utility-actions button{padding:6px;font-size:7px}.danger-zone{margin-top:7px;padding-top:6px}.reset-button{padding:6px;font-size:7px}
   .cabinet-footer{margin-top:5px;padding:0 4px;font-size:6px}
-  .game-view{padding:3px}.game-page{grid-template-rows:auto auto minmax(0,1fr) 62px auto;gap:3px}.game-hud{grid-template-columns:36px repeat(3,1fr);gap:3px;margin:0}.game-hud>div,.hud-exit{min-height:36px;padding:4px;border-width:1px;box-shadow:1px 1px #05030a}.game-hud>div:nth-of-type(1),.game-hud>div:nth-of-type(4){display:none}.game-hud span{font-size:6px}.game-hud strong{font-size:8px;margin-top:3px}.game-hud .hud-score strong{font-size:9px}.hud-exit{font-size:12px}
+  .game-view{padding:3px}.game-page{grid-template-rows:auto auto minmax(0,1fr) 62px auto;gap:3px}.game-hud{grid-template-columns:32px 32px repeat(3,1fr);gap:3px;margin:0}.game-hud>div,.hud-exit,.hud-fullscreen{min-height:36px;padding:4px;border-width:1px;box-shadow:1px 1px #05030a}.game-hud>div:nth-of-type(1),.game-hud>div:nth-of-type(4){display:none}.game-hud span{font-size:6px}.game-hud strong{font-size:8px;margin-top:3px}.game-hud .hud-score strong{font-size:9px}.hud-exit,.hud-fullscreen{font-size:12px}
   .structure-progress{padding:4px 5px}.progress-copy{grid-template-columns:1fr auto;margin-bottom:3px;font-size:6px;gap:5px}.progress-copy em{display:none}.progress-track{height:10px}.progress-track b{font-size:6px}.supreme-meters{grid-template-columns:auto 1fr auto;margin-top:3px;gap:4px}.style-rank{font-size:5px}.style-rank b{font-size:9px}.overdrive-meter{height:10px}.overdrive-meter b{font-size:5px}.supreme-meters button{padding:2px 4px;font-size:5px}.boss-meter{margin-top:2px;font-size:5px}
   .game-frame{padding:2px;border-width:3px;box-shadow:3px 3px #05030a}.game-frame canvas{border-width:2px}.corner-label{top:8px;padding:2px 4px;font-size:5px}.top-left{left:8px}.top-right{right:8px}.world-label{display:none}.event-label{left:8px;top:25px;transform:none;padding:2px 4px;font-size:5px;border-width:1px}.game-toast{right:8px;top:28px;min-width:90px;padding:5px;font-size:6px}.launch-prompt{bottom:24px;min-width:160px;padding:6px 10px;border-width:2px}.launch-prompt strong{font-size:16px}.launch-prompt span{font-size:6px}.launch-prompt small{font-size:5px}.pause-overlay{inset:2px}.pause-card{padding:15px;border-width:2px}.pause-card h2{font-size:28px;margin:4px 0 12px}.pause-card .big-action{min-width:180px;padding:8px}.tutorial-card span{font-size:8px;margin:-4px 0 12px}
   .mobile-control-zone{display:flex}.game-footer{font-size:5px}.game-footer span:first-child{display:none}
@@ -250,5 +254,5 @@ button:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 
 @media (max-height: 650px) and (min-width: 761px) {
   .menu-view{padding:5px}.brand-lockup h1{font-size:42px}.eyebrow{font-size:8px}.brand-rule{margin-top:4px}.screen{padding-block:12px}.menu-button{min-height:37px}.score-strip{margin-bottom:8px}.screen-hint{margin-top:8px}.cabinet-footer{margin-top:6px}
-  .game-hud>div,.hud-exit{min-height:40px}.structure-progress{padding-block:4px}.progress-copy{margin-bottom:3px}.game-footer{font-size:6px}
+  .game-hud>div,.hud-exit,.hud-fullscreen{min-height:40px}.structure-progress{padding-block:4px}.progress-copy{margin-bottom:3px}.game-footer{font-size:6px}
 }
