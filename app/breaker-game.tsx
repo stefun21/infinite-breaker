@@ -15,6 +15,7 @@ interface Brick { id: number; x: number; y: number; w: number; h: number; hp: nu
 interface Drop { x: number; y: number; vy: number; kind: PowerKind; good: boolean; pulse: number; }
 interface Bullet { x: number; y: number; }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number; }
+interface PowerHistoryItem { id: number; kind: PowerKind; good: boolean; expiresAt: number; instant: boolean; }
 
 interface EffectState {
   expand: number; shrink: number; slow: number; sticky: number; fireball: number; bomb: number;
@@ -54,6 +55,8 @@ interface GameRuntime {
   shake: number;
   timeLeft: number;
   powerCounts: Partial<Record<PowerKind, number>>;
+  powerHistory: PowerHistoryItem[];
+  nextPowerHistoryId: number;
   riskBoost: boolean;
   singleBrickSince: number;
   lightningAssist: { x: number; y: number; until: number } | null;
@@ -65,6 +68,8 @@ interface Props {
   highScore: number;
   settings: GameSettings;
   cosmetics: Cosmetics;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
   onHighScore: (score: number) => void;
   onLevelClear: (result: { score: number; lives: number; bricks: number; powerups: number; combo?: number; maxBalls?: number; clearMs?: number; boss?: boolean; livesSaved?: number }) => void;
   onGameOver: (result: { score: number; level: number; bricks: number; powerups: number; combo?: number; maxBalls?: number }) => void;
@@ -107,6 +112,8 @@ const POWER_LABEL: Record<PowerKind, string> = {
   orbit: "ORBIT", ghost: "GHOST", lightning: "BOLT", blackhole: "VOID", timestop: "TIME", ricochet: "AIM", clone: "CLONE", bottomwall: "WALL", drone: "DRONE", shockwave: "WAVE", lucky: "LUCK", phoenix: "REBIRTH", mega: "MEGA", rainbow: "RAINBOW", scorebank: "BANK",
   invert: "INVERT", fake: "DECOY", drift: "DRIFT", fog: "FOG", glitch: "GLITCH", leak: "LEAK", storm: "STORM", tiny: "TINY", bumper: "BUMPER", roulette: "CURSE",
 };
+
+const INSTANT_POWERS = new Set<PowerKind>(["double", "triple", "shield", "life", "repair", "drain", "shockwave", "lightning", "lucky", "blackhole"]);
 
 const SPECIAL_BRICKS: BrickType[] = ["electric", "ice", "prism", "gravityBlock", "mirror", "phantom", "regenerator", "parasite", "switch", "comboBlock", "vault", "corrupted", "titan", "mimic", "golden"];
 const BRICK_SYMBOL: Partial<Record<BrickType, string>> = { electric: "ϟ", ice: "❄", prism: "△", gravityBlock: "◎", mirror: "↔", phantom: "◌", regenerator: "+", parasite: "÷", switch: "⇄", comboBlock: "×", vault: "▣", corrupted: "!", titan: "T", mimic: "?", golden: "★", core: "◆" };
@@ -225,7 +232,7 @@ function initialRuntime(session: RunSession): GameRuntime {
     paddleX: W / 2, targetX: W / 2, paddleW: baseW, balls, bricks: generateBricks(session), drops: [], bullets: [], particles: [],
     score: session.score, lives: session.lives, shield: hasUpgrade(session.upgrades, "safety-net") ? 1 : 0,
     effects: { expand: 0, shrink: 0, slow: 0, sticky: 0, fireball: hasUpgrade(session.upgrades, "strong-start") ? now + 8000 : 0, bomb: 0, laser: 0, magnet: 0, turbo: 0, gravity: 0, heavy: 0, curve: 0, orbit: 0, ghost: 0, lightning: 0, blackhole: 0, timestop: 0, ricochet: 0, clone: 0, bottomwall: 0, drone: 0, shockwave: 0, lucky: 0, phoenix: 0, mega: 0, rainbow: 0, scorebank: 0, invert: 0, fake: 0, drift: 0, fog: 0, glitch: 0, leak: 0, storm: 0, tiny: 0, bumper: 0, roulette: 0 },
-    lastTime: now, levelStart: now, lastLaser: 0, announcedHigh: false, ended: false, bricksBroken: 0, powerupsCaught: 0, combo: 0, maxCombo: 0, maxBalls: balls.length, livesSaved: 0, overdrive: 0, overdriveUntil: 0, phoenixUsed: false, shake: 0, timeLeft: session.timeLimit || 0, powerCounts: {}, riskBoost: false, singleBrickSince: 0, lightningAssist: null, keys: new Set(),
+    lastTime: now, levelStart: now, lastLaser: 0, announcedHigh: false, ended: false, bricksBroken: 0, powerupsCaught: 0, combo: 0, maxCombo: 0, maxBalls: balls.length, livesSaved: 0, overdrive: 0, overdriveUntil: 0, phoenixUsed: false, shake: 0, timeLeft: session.timeLimit || 0, powerCounts: {}, powerHistory: [], nextPowerHistoryId: 1, riskBoost: false, singleBrickSince: 0, lightningAssist: null, keys: new Set(),
   };
 }
 
@@ -249,16 +256,15 @@ class MiniSynth {
   stop() { if (this.musicTimer) window.clearInterval(this.musicTimer); this.musicTimer = null; }
 }
 
-export function BreakerGame({ session, highScore, settings, cosmetics, onHighScore, onLevelClear, onGameOver, onExit }: Props) {
+export function BreakerGame({ session, highScore, settings, cosmetics, fullscreen, onToggleFullscreen, onHighScore, onLevelClear, onGameOver, onExit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtime = useRef<GameRuntime | null>(null);
   const synth = useRef(new MiniSynth());
-  const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0, bricksLeft: 0, totalBricks: 0, overdrive: 0, style: "D", timeLeft: session.timeLimit || 0, bossHp: 0, bossMax: 0, awaitingLaunch: true, launchSeconds: 7 });
+  const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0, overdrive: 0, style: "D", timeLeft: session.timeLimit || 0, bossHp: 0, bossMax: 0, awaitingLaunch: true, launchSeconds: 7, powerHistory: [] as Array<PowerHistoryItem & { remaining: number; expired: boolean }> });
   const [paused, setPaused] = useState(() => typeof window !== "undefined" && !localStorage.getItem("infinite-breaker-tutorial-v2"));
   const [countdown, setCountdown] = useState<number | null>(null);
   const pausedRef = useRef(false);
   const [toast, setToast] = useState("");
-  const [fullscreen, setFullscreen] = useState(false);
   const [tutorial, setTutorial] = useState(() => typeof window !== "undefined" && !localStorage.getItem("infinite-breaker-tutorial-v2") ? 1 : 0);
   const controlRef = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onHighScore, onLevelClear, onGameOver });
@@ -279,24 +285,13 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
     setCountdown((value) => value ?? 5);
   }, [audioReady]);
 
-  const toggleFullscreen = useCallback(async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
-    } catch {
-      setToast("FULLSCREEN NOT AVAILABLE");
-      window.setTimeout(() => setToast(""), 1600);
-    }
-  }, []);
-
   useEffect(() => {
-    const syncFullscreen = () => {
-      setFullscreen(Boolean(document.fullscreenElement));
+    const pauseForFullscreenChange = () => {
       setCountdown(null);
       setPaused(true);
     };
-    document.addEventListener("fullscreenchange", syncFullscreen);
-    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("fullscreenchange", pauseForFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", pauseForFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -421,6 +416,8 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
       const now = performance.now(); const good = isGood(kind); let ms = (good ? 11000 : 9000) * duration(good);
       g.powerCounts[kind] = (g.powerCounts[kind] || 0) + 1;
       if ((g.powerCounts[kind] || 0) % 3 === 0) { ms *= 1.75; setToast(`EVOLVED · ${POWER_LABEL[kind]} II`); }
+      const instant = INSTANT_POWERS.has(kind);
+      g.powerHistory.push({ id: g.nextPowerHistoryId++, kind, good, expiresAt: instant ? now : now + ms, instant });
       g.powerupsCaught++; setToast(`${good ? "+" : "!"} ${POWER_LABEL[kind]}`); window.setTimeout(() => setToast(""), 1200);
       if (settings.sfx) synth.current.tone(good ? 660 : 115, 0.18, 0.035, good ? "square" : "sawtooth");
       if (kind === "expand") g.effects.expand = now + ms;
@@ -735,7 +732,6 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
       draw(now);
       if (now - hudTimer > 100) {
         hudTimer = now;
-        const breakable = g.bricks.filter((brick) => brick.type !== "armored");
         const boss = g.bricks.find((brick) => brick.type === "core" && brick.hp > 0);
         const waitingBall = g.balls.find((ball) => ball.awaitingLaunch);
         const style = g.combo >= 50 ? "SSS" : g.combo >= 35 ? "SS" : g.combo >= 24 ? "S" : g.combo >= 15 ? "A" : g.combo >= 8 ? "B" : g.combo >= 3 ? "C" : "D";
@@ -744,8 +740,6 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
           lives: g.lives,
           balls: g.balls.length,
           combo: g.combo,
-          bricksLeft: breakable.filter((brick) => brick.hp > 0).length,
-          totalBricks: breakable.length,
           overdrive: g.overdrive,
           style,
           timeLeft: g.timeLeft,
@@ -753,6 +747,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
           bossMax: boss?.maxHp || 0,
           awaitingLaunch: Boolean(waitingBall),
           launchSeconds: waitingBall ? Math.max(0, Math.ceil((waitingBall.autoLaunchAt - now) / 1000)) : 0,
+          powerHistory: g.powerHistory.map((item) => ({ ...item, remaining: item.instant ? 0 : Math.max(0, Math.ceil((item.expiresAt - now) / 1000)), expired: item.instant || item.expiresAt <= now })),
         });
       }
       frame = requestAnimationFrame(loop);
@@ -776,52 +771,41 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
       }
       if (e.code === "Space" && !e.repeat) { e.preventDefault(); if (!launchBalls()) activateOverdrive(); }
       if (e.code === "KeyR" && !e.repeat) { g.riskBoost = !g.riskBoost; setToast(g.riskBoost ? "RISK DRIVE · SCORE ×1.3" : "RISK DRIVE OFF"); }
-      if (e.code === "KeyF" && !e.repeat) { e.preventDefault(); void toggleFullscreen(); }
+      if (e.code === "KeyF" && !e.repeat) { e.preventDefault(); onToggleFullscreen(); }
     };
     const keyUp = (e: KeyboardEvent) => g.keys.delete(e.code);
     canvas.addEventListener("pointermove", move); canvas.addEventListener("pointerdown", down);
-    canvas.addEventListener("dblclick", toggleFullscreen);
     control?.addEventListener("pointermove", controlMove); control?.addEventListener("pointerdown", controlDown);
     window.addEventListener("keydown", keyDown); window.addEventListener("keyup", keyUp);
     frame = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(frame); canvas.removeEventListener("pointermove", move); canvas.removeEventListener("pointerdown", down);
-      canvas.removeEventListener("dblclick", toggleFullscreen);
       control?.removeEventListener("pointermove", controlMove); control?.removeEventListener("pointerdown", controlDown);
       window.removeEventListener("keydown", keyDown); window.removeEventListener("keyup", keyUp); synthEngine.stop();
     };
-  }, [audioReady, beginResume, cosmetics, session, settings.quality, settings.reducedMotion, settings.screenShake, settings.sfx, toggleFullscreen]);
-
-  const structureProgress = hud.totalBricks > 0
-    ? Math.max(0, Math.min(100, Math.round(((hud.totalBricks - hud.bricksLeft) / hud.totalBricks) * 100)))
-    : 0;
+  }, [audioReady, beginResume, cosmetics, onToggleFullscreen, session, settings.quality, settings.reducedMotion, settings.screenShake, settings.sfx]);
 
   return (
     <div className="game-page">
       <header className="game-hud">
         <button className="hud-exit" aria-label="Pause game" onClick={() => { setCountdown(null); setPaused(true); }}>Ⅱ</button>
-        <button className={`hud-fullscreen ${fullscreen ? "active" : ""}`} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"} onClick={() => void toggleFullscreen()}>⛶</button>
         <div><span>MODE</span><strong>{(session.variant || session.mode).toUpperCase()}</strong></div>
         <div><span>STRUCTURE</span><strong>{String(session.level).padStart(2, "0")}</strong></div>
         <div className="hud-score"><span>SCORE</span><strong>{hud.score.toLocaleString("en-US").padStart(8, "0")}</strong></div>
         <div><span>HIGH</span><strong>{Math.max(highScore, hud.score).toLocaleString("en-US")}</strong></div>
         <div><span>{session.timeLimit ? "TIME" : session.mode === "campaign" ? "LIVES" : "BALLS"}</span><strong>{session.timeLimit ? Math.ceil(hud.timeLeft) : session.mode === "campaign" ? "♥".repeat(Math.max(0, Math.min(7, hud.lives))) : hud.balls}</strong></div>
       </header>
-      <section className="structure-progress" aria-label={`${hud.bricksLeft} destructible blocks remaining`}>
-        <div className="progress-copy">
-          <span>STRUCTURE PROGRESS</span>
-          <strong>{hud.bricksLeft} BLOCKS LEFT</strong>
-          <em>{structureProgress}% CLEARED</em>
-        </div>
-        <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={structureProgress}>
-          <i style={{ width: `${structureProgress}%` }} />
-          <b>{structureProgress}%</b>
-        </div>
+      <section className="game-status-panel">
         <div className="supreme-meters"><span className={`style-rank rank-${hud.style.toLowerCase()}`}>STYLE <b>{hud.style}</b></span><div className="overdrive-meter"><i style={{ width: `${hud.overdrive}%` }} /><b>OVERDRIVE {Math.round(hud.overdrive)}%</b></div><button disabled={hud.overdrive < 100} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡ ACTIVATE</button></div>
         {hud.bossMax > 0 && <div className="boss-meter"><span>BOSS PHASE {Math.max(1, 4 - Math.ceil(hud.bossHp / Math.max(1, hud.bossMax / 3)))}</span><i><b style={{ width: `${hud.bossHp / hud.bossMax * 100}%` }} /></i><em>{hud.bossHp}/{hud.bossMax}</em></div>}
+        <div className="power-history" aria-label="Power-ups collected in this structure">
+          <b className="power-history-title">POWER LOG</b>
+          <div className="power-history-items">{hud.powerHistory.length ? hud.powerHistory.map((item) => <span key={item.id} className={`${item.good ? "good" : "bad"} ${item.expired ? "expired" : "active"}`} title={item.instant ? "Used" : item.expired ? "Effect ended" : `${item.remaining} seconds remaining`}><i>{item.good ? "+" : "!"}</i>{POWER_LABEL[item.kind]}<small>{item.instant ? "USED" : item.expired ? "ENDED" : `${item.remaining}s`}</small></span>) : <em>NO POWER-UPS YET</em>}</div>
+        </div>
       </section>
       <div className="game-frame">
         <canvas ref={canvasRef} width={W} height={H} aria-label="Infinite Breaker game area" />
+        <button className={`frame-fullscreen ${fullscreen ? "active" : ""}`} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"} onPointerDown={(e) => e.stopPropagation()} onClick={onToggleFullscreen}>⛶<span>{fullscreen ? "EXIT" : "FULL"}</span></button>
         <div className="corner-label top-left">{session.route.toUpperCase()} ROUTE</div>
         <div className="corner-label top-right">COMBO {hud.combo}</div>
         <div className="world-label" style={{ borderColor: worldTheme.accent, color: worldTheme.accent }}>{worldTheme.name}</div>
@@ -849,7 +833,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
         )}
       </div>
       <div ref={controlRef} className="mobile-control-zone" aria-label="Touch paddle control area"><span>{hud.awaitingLaunch ? "TAP HERE TO LAUNCH · DRAG TO MOVE" : "DRAG ANYWHERE HERE TO MOVE"}</span><i /><button onPointerDown={(e) => e.stopPropagation()} disabled={hud.overdrive < 100 || hud.awaitingLaunch} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡</button></div>
-      <footer className="game-footer"><span>F FULLSCREEN · DOUBLE-CLICK SCENE</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE LAUNCH/OVERDRIVE</span></footer>
+      <footer className="game-footer"><span>F · FULLSCREEN</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE LAUNCH/OVERDRIVE</span></footer>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BreakerGame } from "./breaker-game";
 
 export type GameMode = "campaign" | "casual";
@@ -117,7 +117,35 @@ export default function Home() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [rerolls, setRerolls] = useState(1);
   const [choiceSalt, setChoiceSalt] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      alert("Fullscreen is not available in this browser.");
+    }
+  }, []);
+
+  useEffect(() => {
+    const syncFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (view === "game") return;
+    const handleFullscreenKey = (event: KeyboardEvent) => {
+      if (event.code === "KeyF" && !event.repeat && !(event.target instanceof HTMLInputElement)) {
+        event.preventDefault();
+        void toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", handleFullscreenKey);
+    return () => window.removeEventListener("keydown", handleFullscreenKey);
+  }, [toggleFullscreen, view]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -180,12 +208,12 @@ export default function Home() {
     <main className={`app-shell ${view === "game" ? "game-view" : "menu-view"} ${settings.reducedMotion ? "reduced-motion" : ""} ${settings.highContrast ? "high-contrast" : ""}`}>
       <div className="scanlines" aria-hidden="true" /><div className="pixel-stars" aria-hidden="true" />
       {view === "game" && session ? (
-        <BreakerGame key={`${session.mode}-${session.level}-${session.route}-${session.score}-${session.variant}`} session={session} highScore={highScore} settings={settings} cosmetics={collection} onHighScore={handleHighScore} onLevelClear={handleLevelClear} onGameOver={handleGameOver} onExit={exitGame} />
+        <BreakerGame key={`${session.mode}-${session.level}-${session.route}-${session.score}-${session.variant}`} session={session} highScore={highScore} settings={settings} cosmetics={collection} fullscreen={fullscreen} onToggleFullscreen={() => void toggleFullscreen()} onHighScore={handleHighScore} onLevelClear={handleLevelClear} onGameOver={handleGameOver} onExit={exitGame} />
       ) : (
         <div className="cabinet-wrap">
           <header className="brand-lockup"><p className="eyebrow">SUPREME ARCADE EDITION</p><h1>INFINITE<br /><span>BREAKER</span></h1><div className="brand-rule"><i /><b>∞</b><i /></div></header>
           <section className="arcade-panel">
-            {view === "menu" && <div className="screen menu-screen"><div className="score-strip"><span>LOCAL HIGH SCORE</span><strong>{highScore.toLocaleString("en-US").padStart(8, "0")}</strong></div><nav className="menu-list" aria-label="Main menu">
+            {view === "menu" && <div className="screen menu-screen"><button className={`menu-fullscreen ${fullscreen ? "active" : ""}`} onClick={() => void toggleFullscreen()} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"}>⛶<span>{fullscreen ? "EXIT FULLSCREEN" : "FULLSCREEN"}</span></button><div className="score-strip"><span>LOCAL HIGH SCORE</span><strong>{highScore.toLocaleString("en-US").padStart(8, "0")}</strong></div><nav className="menu-list" aria-label="Main menu">
               <button className="menu-button primary" onClick={continueCampaign} disabled={!savedRun}><span>▶</span> CONTINUE CAMPAIGN</button>
               <button className="menu-button" onClick={beginCampaign}><span>◆</span> NEW CAMPAIGN</button>
               <button className="menu-button supreme" onClick={() => setView("modes")}><span>♛</span> SUPREME MODES</button>
@@ -203,15 +231,15 @@ export default function Home() {
 
             {view === "game-over" && <div className="screen sub-screen center-screen"><p className="danger-kicker">RUN TERMINATED</p><h2>GAME OVER</h2><div className="final-score"><span>FINAL SCORE</span><strong>{lastClear.score.toLocaleString("en-US")}</strong><small>HIGH SCORE · {highScore.toLocaleString("en-US")}</small></div><div className="result-grid compact"><span>STRUCTURE<strong>{lastClear.level}</strong></span><span>COMBO<strong>×{lastClear.combo}</strong></span><span>MODE<strong>{session?.variant?.toUpperCase() || "CAMPAIGN"}</strong></span></div><button className="big-action" onClick={() => session?.mode === "campaign" ? beginCampaign() : setView("modes")}>PLAY AGAIN</button><button className="text-button" onClick={() => setView("menu")}>RETURN TO MENU</button></div>}
 
-            {view === "how-to" && <div className="screen sub-screen scroll-screen"><ScreenHeader title="HOW TO PLAY" onBack={() => setView("menu")} /><div className="instruction-grid"><InfoBlock n="01" title="MOVE">Move anywhere across the canvas or the large touch zone below it. Mouse, touch and A/D work.</InfoBlock><InfoBlock n="02" title="STYLE">Perfect hits, saves and uninterrupted destruction build Combo and the SSS Style Rank.</InfoBlock><InfoBlock n="03" title="OVERDRIVE">Fill the cyan meter, then press Space or the on-screen button to unleash Overdrive.</InfoBlock><InfoBlock n="04" title="BUILD">Fuse power-ups, stack upgrades and defeat bosses. Press F or double-click the arena for fullscreen.</InfoBlock></div><div className="legend-row"><span className="legend good">GOOD</span><span className="legend bad">CURSE</span><span className="legend heart">LEGENDARY</span></div></div>}
+            {view === "how-to" && <div className="screen sub-screen scroll-screen"><ScreenHeader title="HOW TO PLAY" onBack={() => setView("menu")} /><div className="instruction-grid"><InfoBlock n="01" title="MOVE">Move anywhere across the canvas or the large touch zone below it. Mouse, touch and A/D work.</InfoBlock><InfoBlock n="02" title="STYLE">Perfect hits, saves and uninterrupted destruction build Combo and the SSS Style Rank.</InfoBlock><InfoBlock n="03" title="OVERDRIVE">Fill the cyan meter, then press Space or the on-screen button to unleash Overdrive.</InfoBlock><InfoBlock n="04" title="BUILD">Fuse power-ups, stack upgrades and defeat bosses. Press F or use the fullscreen button.</InfoBlock></div><div className="legend-row"><span className="legend good">GOOD</span><span className="legend bad">CURSE</span><span className="legend heart">LEGENDARY</span></div></div>}
 
             {view === "collection" && <div className="screen sub-screen scroll-screen"><ScreenHeader title="COLLECTION" onBack={() => setView("menu")} /><p className="checkpoint-copy">UNLOCKED BY PLAYING · NO SHOP · NO ACCOUNT</p><div className="collection-grid">{COLLECTION_ITEMS.map((item) => { const open = collection.unlocked.includes(item.id); const selected = collection[item.kind === "BALL" ? "ball" : item.kind === "PADDLE" ? "paddle" : "trail"] === item.id; return <button key={item.id} disabled={!open} className={selected ? "selected" : ""} onClick={() => { const key = item.kind === "BALL" ? "ball" : item.kind === "PADDLE" ? "paddle" : "trail"; persistCollection({ ...collection, [key]: item.id }); }}><i className={`cosmetic-preview ${item.id}`} /><strong>{item.id.toUpperCase()}</strong><small>{open ? item.kind : `REACH ${item.unlock}`}</small></button>; })}</div><div className="achievement-row">{collection.achievements.length ? collection.achievements.map((a) => <span key={a}>★ {a}</span>) : <span>ACHIEVEMENTS APPEAR HERE</span>}</div></div>}
 
             {view === "stats" && <div className="screen sub-screen scroll-screen"><ScreenHeader title="LOCAL RECORDS" onBack={() => setView("menu")} /><div className="stats-grid supreme-stats"><Stat label="HIGH SCORE" value={highScore} /><Stat label="BEST STRUCTURE" value={stats.bestLevel} /><Stat label="HIGHEST COMBO" value={stats.highestCombo} /><Stat label="FASTEST CLEAR" value={stats.fastestClear ? `${(stats.fastestClear / 1000).toFixed(1)}s` : "—"} /><Stat label="MAX BALLS" value={stats.maxBalls} /><Stat label="BOSSES DEFEATED" value={stats.bossesDefeated} /><Stat label="BRICKS BROKEN" value={stats.bricksBroken} /><Stat label="POWER-UPS" value={stats.powerupsCaught} /></div><div className="history-list"><b>RECENT RUNS</b>{stats.recentRuns.length ? stats.recentRuns.map((run, i) => <span key={`${run.date}-${i}`}><em>{run.variant.toUpperCase()}</em><strong>{run.score.toLocaleString("en-US")}</strong><small>LV {run.level} · {run.date}</small></span>) : <p>NO FINISHED RUNS YET</p>}</div></div>}
 
-            {view === "settings" && <div className="screen sub-screen scroll-screen"><ScreenHeader title="SETTINGS" onBack={() => setView("menu")} /><div className="settings-list"><Toggle label="SYNTHWAVE MUSIC" value={settings.music} onChange={(music) => updateSettings({ music })} /><Toggle label="ARCADE SFX" value={settings.sfx} onChange={(sfx) => updateSettings({ sfx })} /><Toggle label="REDUCED MOTION" value={settings.reducedMotion} onChange={(reducedMotion) => updateSettings({ reducedMotion })} /><Toggle label="HIGH CONTRAST" value={settings.highContrast} onChange={(highContrast) => updateSettings({ highContrast })} /><Toggle label="COLORBLIND SYMBOLS" value={settings.colorblind} onChange={(colorblind) => updateSettings({ colorblind })} /><Range label="SCREEN SHAKE" value={settings.screenShake} max={2} onChange={(screenShake) => updateSettings({ screenShake })} /><Range label="EFFECT QUALITY" value={settings.quality} max={2} onChange={(quality) => updateSettings({ quality })} /></div><div className="utility-actions"><button onClick={() => document.documentElement.requestFullscreen?.()}>FULLSCREEN</button><button onClick={exportSave}>EXPORT SAVE</button><button onClick={() => importRef.current?.click()}>IMPORT SAVE</button><input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => importSave(e.target.files?.[0])} /></div><div className="danger-zone">{!confirmReset ? <button className="reset-button" onClick={() => setConfirmReset(true)}>RESET ALL LOCAL DATA</button> : <div className="confirm-reset" role="alert"><strong>RESET EVERYTHING?</strong><p>This deletes all progress, unlocks, records and settings. This cannot be undone.</p><div className="confirm-actions"><button onClick={() => setConfirmReset(false)}>CANCEL</button><button className="danger-confirm" onClick={resetAllData}>YES, RESET</button></div></div>}</div></div>}
+            {view === "settings" && <div className="screen sub-screen scroll-screen"><ScreenHeader title="SETTINGS" onBack={() => setView("menu")} /><div className="settings-list"><Toggle label="SYNTHWAVE MUSIC" value={settings.music} onChange={(music) => updateSettings({ music })} /><Toggle label="ARCADE SFX" value={settings.sfx} onChange={(sfx) => updateSettings({ sfx })} /><Toggle label="REDUCED MOTION" value={settings.reducedMotion} onChange={(reducedMotion) => updateSettings({ reducedMotion })} /><Toggle label="HIGH CONTRAST" value={settings.highContrast} onChange={(highContrast) => updateSettings({ highContrast })} /><Toggle label="COLORBLIND SYMBOLS" value={settings.colorblind} onChange={(colorblind) => updateSettings({ colorblind })} /><Range label="SCREEN SHAKE" value={settings.screenShake} max={2} onChange={(screenShake) => updateSettings({ screenShake })} /><Range label="EFFECT QUALITY" value={settings.quality} max={2} onChange={(quality) => updateSettings({ quality })} /></div><div className="utility-actions"><button onClick={() => void toggleFullscreen()}>{fullscreen ? "EXIT FULLSCREEN" : "FULLSCREEN"}</button><button onClick={exportSave}>EXPORT SAVE</button><button onClick={() => importRef.current?.click()}>IMPORT SAVE</button><input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => importSave(e.target.files?.[0])} /></div><div className="danger-zone">{!confirmReset ? <button className="reset-button" onClick={() => setConfirmReset(true)}>RESET ALL LOCAL DATA</button> : <div className="confirm-reset" role="alert"><strong>RESET EVERYTHING?</strong><p>This deletes all progress, unlocks, records and settings. This cannot be undone.</p><div className="confirm-actions"><button onClick={() => setConfirmReset(false)}>CANCEL</button><button className="danger-confirm" onClick={resetAllData}>YES, RESET</button></div></div>}</div></div>}
           </section>
-          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>SUPREME SYSTEM ONLINE</b><span>V2.2</span></footer>
+          <footer className="cabinet-footer"><span>© 2026 INFINITE BREAKER</span><b>SUPREME SYSTEM ONLINE</b><span>V2.3</span></footer>
         </div>
       )}
     </main>

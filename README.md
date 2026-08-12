@@ -55,3 +55,10 @@ All progress is stored locally in the browser. The Settings screen can export it
 - Added a compact, state-aware fullscreen button to the in-game HUD.
 - Added the F keyboard shortcut and double-click arena shortcut for fullscreen.
 - Entering or leaving fullscreen safely pauses the game, preventing accidental ball loss during the display transition.
+
+## Version 2.3
+
+- Fullscreen is available from the main menu and from a dedicated button inside the game frame, plus the F shortcut.
+- Removed the double-click fullscreen shortcut and rebuilt fullscreen sizing to keep the arena and HUD clear of overlaps.
+- Replaced Structure Progress with a per-structure Power Log that records every caught power-up.
+- Timed power-ups display a live countdown and become grayed out when their effect ends; instant effects are marked USED.
