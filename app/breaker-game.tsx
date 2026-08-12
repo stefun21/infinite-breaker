@@ -202,7 +202,7 @@ function generateBricks(session: RunSession): Brick[] {
 
       const tougher = session.route === "risky" && rng() < 0.16;
       if (tougher && type === "normal") type = "reinforced";
-      const hp = type === "armored" ? 999 : type === "titan" ? 5 : type === "reinforced" || type === "regenerator" ? (session.level > 20 ? 3 : 2) : 1;
+      const hp = type === "armored" ? 4 + Math.min(2, Math.floor(session.level / 25)) : type === "titan" ? 5 : type === "reinforced" || type === "regenerator" ? (session.level > 20 ? 3 : 2) : 1;
       bricks.push({
         id: id++, x: startX + col * (bw + gap), y: startY + row * (bh + gap), w: bw, h: bh,
         hp, maxHp: hp, type, vx: type === "moving" ? (rng() > 0.5 ? 26 : -26) : 0,
@@ -383,7 +383,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
     };
 
     const destroyBrick = (brick: Brick, chain = false) => {
-      if (brick.hp <= 0 || brick.type === "armored") return;
+      if (brick.hp <= 0) return;
       brick.hp = 0; g.bricksBroken++; g.combo++; g.maxCombo = Math.max(g.maxCombo, g.combo); g.overdrive = Math.min(100, g.overdrive + (hasUpgrade(session.upgrades, "overdrive-core") ? 7 : 4)); addScore(brick.type === "core" ? 900 : brick.type === "golden" ? 1200 : brick.type === "corrupted" ? 450 : brick.type === "reinforced" ? 180 : 100);
       burst(brick.x + brick.w / 2, brick.y + brick.h / 2, theme.bricks[brick.type] || theme.accent, brick.type === "core" ? 28 : 8);
       if (settings.screenShake && !settings.reducedMotion) g.shake = Math.max(g.shake, brick.type === "core" || brick.type === "explosive" ? 8 : 2);
@@ -406,7 +406,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
     };
 
     const hitBrick = (brick: Brick) => {
-      if (brick.type === "armored" || brick.hp <= 0) return;
+      if (brick.hp <= 0) return;
       brick.hp--;
       if (brick.hp <= 0) { brick.hp = 1; destroyBrick(brick); }
       else { g.combo++; g.maxCombo = Math.max(g.maxCombo, g.combo); g.overdrive = Math.min(100, g.overdrive + 2); addScore(35); if (settings.sfx) synth.current.tone(170, 0.05, 0.015); }
@@ -439,11 +439,11 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
         g.effects.expand = g.effects.slow = g.effects.sticky = g.effects.fireball = g.effects.bomb = g.effects.laser = g.effects.magnet = 0;
       }
       if (kind === "repair") {
-        const broken = g.bricks.filter((b) => b.hp === 0 && b.type !== "armored").slice(-4);
+        const broken = g.bricks.filter((b) => b.hp === 0).slice(-4);
         for (const b of broken) b.hp = Math.min(b.maxHp, 1);
       }
-      if (kind === "shockwave") for (const brick of g.bricks.filter((b) => b.hp > 0 && b.type !== "armored").slice(-8)) hitBrick(brick);
-      if (kind === "lightning") for (const brick of g.bricks.filter((b) => b.hp > 0 && b.type !== "armored").slice(0, 5)) hitBrick(brick);
+      if (kind === "shockwave") for (const brick of g.bricks.filter((b) => b.hp > 0).slice(-8)) hitBrick(brick);
+      if (kind === "lightning") for (const brick of g.bricks.filter((b) => b.hp > 0).slice(0, 5)) hitBrick(brick);
       if (kind === "lucky") g.drops.filter((d) => !d.good).forEach((d) => { d.kind = GOOD[Math.floor(Math.random() * GOOD.length)]; d.good = true; });
       if (kind === "storm") for (let i = 0; i < 8; i++) { const stormKind = choosePower(Math.random, session); g.drops.push({ x: 80 + Math.random() * 800, y: 90 + Math.random() * 160, vy: 150, kind: stormKind, good: isGood(stormKind), pulse: i }); }
       if (kind === "blackhole") for (const drop of g.drops) { drop.x += (g.paddleX - drop.x) * .25; }
@@ -494,7 +494,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
       }
       for (const brick of g.bricks) {
         if (brick.hp <= 0) continue;
-        if (brick.type === "regenerator" && now - brick.lastAction > 4500) { const broken = g.bricks.find((b) => b.hp <= 0 && b.type !== "armored"); if (broken) broken.hp = 1; brick.lastAction = now; }
+        if (brick.type === "regenerator" && now - brick.lastAction > 4500) { const broken = g.bricks.find((b) => b.hp <= 0); if (broken) broken.hp = 1; brick.lastAction = now; }
         if (brick.type === "gravityBlock") for (const ball of g.balls) { const dx = brick.x + brick.w / 2 - ball.x; const dy = brick.y + brick.h / 2 - ball.y; const d = Math.max(80, Math.hypot(dx, dy)); if (d < 210) { ball.vx += dx / d * 24 * dt; ball.vy += dy / d * 24 * dt; } }
         if (brick.type === "core") {
           brick.x += brick.vx * dt; if (brick.x < 90 || brick.x + brick.w > W - 90) brick.vx *= -1;
@@ -569,7 +569,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
           const dx = ball.x - nearestX, dy = ball.y - nearestY;
           if (dx * dx + dy * dy <= ball.r * ball.r) {
             if (brick.type === "mimic") brick.type = SPECIAL_BRICKS[(brick.id + session.level) % SPECIAL_BRICKS.length];
-            if (brick.type !== "armored") hitBrick(brick);
+            hitBrick(brick);
             const precision = Math.abs(ball.x - (brick.x + brick.w / 2)) < brick.w * .16;
             if (precision) { addScore(hasUpgrade(session.upgrades, "precision-engine") ? 140 : 60); g.overdrive = Math.min(100, g.overdrive + 4); }
             if (brick.type === "mirror") ball.vx *= -1;
@@ -603,7 +603,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
       }
       g.drops = g.drops.filter((drop) => drop.y < H + 20);
 
-      const remainingBreakable = g.bricks.filter((brick) => brick.hp > 0 && brick.type !== "armored");
+      const remainingBreakable = g.bricks.filter((brick) => brick.hp > 0);
       if (remainingBreakable.length === 1) {
         if (!g.singleBrickSince) g.singleBrickSince = now;
         if (now - g.singleBrickSince >= 20000) {
@@ -619,8 +619,8 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
       } else {
         g.singleBrickSince = 0;
       }
-      const breakableLeft = remainingBreakable.some((brick) => brick.hp > 0);
-      if (!breakableLeft && !g.ended) {
+      const allBlocksDestroyed = g.bricks.length > 0 && g.bricks.every((brick) => brick.hp <= 0);
+      if (allBlocksDestroyed && !g.ended) {
         g.ended = true; addScore(1000 + session.level * 50);
         window.setTimeout(() => callbacks.current.onLevelClear({ score: g.score, lives: g.lives, bricks: g.bricksBroken, powerups: g.powerupsCaught, combo: g.maxCombo, maxBalls: g.maxBalls, clearMs: performance.now() - g.levelStart, boss: session.level % 10 === 0, livesSaved: g.livesSaved }), 500);
       }
@@ -661,7 +661,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
         if (brick.hp < brick.maxHp && brick.maxHp < 100) { ctx.strokeStyle = "rgba(14,10,32,.75)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(brick.x + brick.w * .25, brick.y + 2); ctx.lineTo(brick.x + brick.w * .48, brick.y + brick.h - 2); ctx.lineTo(brick.x + brick.w * .7, brick.y + 5); ctx.stroke(); }
         if (brick.type === "power") { ctx.fillStyle = "#0e0a20"; ctx.font = "bold 14px monospace"; ctx.textAlign = "center"; ctx.fillText("?", brick.x + brick.w / 2, brick.y + 17); }
         if (brick.type === "heart") { ctx.fillStyle = "#fff"; ctx.font = "bold 13px monospace"; ctx.textAlign = "center"; ctx.fillText("♥", brick.x + brick.w / 2, brick.y + 17); }
-        if (brick.type === "reinforced" || brick.type === "core") {
+        if (brick.type === "reinforced" || brick.type === "armored" || brick.type === "core") {
           ctx.fillStyle = "#0e0a20"; ctx.font = "bold 11px monospace"; ctx.textAlign = "center"; ctx.fillText(String(brick.hp), brick.x + brick.w / 2, brick.y + 16);
         }
         if (brick.type === "armored") { ctx.strokeStyle = "#8991b2"; ctx.lineWidth = 2; ctx.strokeRect(brick.x + 4, brick.y + 4, brick.w - 8, brick.h - 8); }
@@ -787,29 +787,32 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
 
   return (
     <div className="game-page">
-      <header className="game-hud">
-        <button className="hud-exit" aria-label="Pause game" onClick={() => { setCountdown(null); setPaused(true); }}>Ⅱ</button>
-        <div><span>MODE</span><strong>{(session.variant || session.mode).toUpperCase()}</strong></div>
-        <div><span>STRUCTURE</span><strong>{String(session.level).padStart(2, "0")}</strong></div>
-        <div className="hud-score"><span>SCORE</span><strong>{hud.score.toLocaleString("en-US").padStart(8, "0")}</strong></div>
-        <div><span>HIGH</span><strong>{Math.max(highScore, hud.score).toLocaleString("en-US")}</strong></div>
-        <div><span>{session.timeLimit ? "TIME" : session.mode === "campaign" ? "LIVES" : "BALLS"}</span><strong>{session.timeLimit ? Math.ceil(hud.timeLeft) : session.mode === "campaign" ? "♥".repeat(Math.max(0, Math.min(7, hud.lives))) : hud.balls}</strong></div>
-      </header>
-      <section className="game-status-panel">
-        <div className="supreme-meters"><span className={`style-rank rank-${hud.style.toLowerCase()}`}>STYLE <b>{hud.style}</b></span><div className="overdrive-meter"><i style={{ width: `${hud.overdrive}%` }} /><b>OVERDRIVE {Math.round(hud.overdrive)}%</b></div><button disabled={hud.overdrive < 100} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡ ACTIVATE</button></div>
-        {hud.bossMax > 0 && <div className="boss-meter"><span>BOSS PHASE {Math.max(1, 4 - Math.ceil(hud.bossHp / Math.max(1, hud.bossMax / 3)))}</span><i><b style={{ width: `${hud.bossHp / hud.bossMax * 100}%` }} /></i><em>{hud.bossHp}/{hud.bossMax}</em></div>}
-        <div className="power-history" aria-label="Power-ups collected in this structure">
-          <b className="power-history-title">POWER LOG</b>
-          <div className="power-history-items">{hud.powerHistory.length ? hud.powerHistory.map((item) => <span key={item.id} className={`${item.good ? "good" : "bad"} ${item.expired ? "expired" : "active"}`} title={item.instant ? "Used" : item.expired ? "Effect ended" : `${item.remaining} seconds remaining`}><i>{item.good ? "+" : "!"}</i>{POWER_LABEL[item.kind]}<small>{item.instant ? "USED" : item.expired ? "ENDED" : `${item.remaining}s`}</small></span>) : <em>NO POWER-UPS YET</em>}</div>
-        </div>
-      </section>
+      <aside className="game-sidebar">
+        <header className="game-hud">
+          <button className="hud-exit" aria-label="Pause game" onClick={() => { setCountdown(null); setPaused(true); }}><span>PAUSE</span><strong>Ⅱ</strong></button>
+          <div><span>MODE</span><strong>{(session.variant || session.mode).toUpperCase()}</strong></div>
+          <div><span>STRUCTURE</span><strong>{String(session.level).padStart(2, "0")}</strong></div>
+          <div className="hud-score"><span>SCORE</span><strong>{hud.score.toLocaleString("en-US").padStart(8, "0")}</strong></div>
+          <div><span>HIGH SCORE</span><strong>{Math.max(highScore, hud.score).toLocaleString("en-US")}</strong></div>
+          <div className="hud-resource"><span>{session.timeLimit ? "TIME" : session.mode === "campaign" ? "LIVES" : "BALLS"}</span><strong>{session.timeLimit ? Math.ceil(hud.timeLeft) : session.mode === "campaign" ? "♥".repeat(Math.max(0, Math.min(7, hud.lives))) : hud.balls}</strong></div>
+          <div className="desktop-only-hud"><span>WORLD</span><strong style={{ color: worldTheme.accent }}>{worldTheme.name}</strong></div>
+          <div className="desktop-only-hud"><span>ROUTE</span><strong>{session.route.toUpperCase()}</strong></div>
+          <div className="desktop-only-hud"><span>COMBO</span><strong>×{hud.combo}</strong></div>
+          {levelEvent && <div className="desktop-only-hud hud-event"><span>SPECIAL EVENT</span><strong>{levelEvent}</strong></div>}
+        </header>
+        <section className="game-status-panel">
+          <div className="supreme-meters"><span className={`style-rank rank-${hud.style.toLowerCase()}`}>STYLE <b>{hud.style}</b></span><div className="overdrive-meter"><i style={{ width: `${hud.overdrive}%` }} /><b>OVERDRIVE {Math.round(hud.overdrive)}%</b></div><button disabled={hud.overdrive < 100} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡ ACTIVATE</button></div>
+          {hud.bossMax > 0 && <div className="boss-meter"><span>BOSS PHASE {Math.max(1, 4 - Math.ceil(hud.bossHp / Math.max(1, hud.bossMax / 3)))}</span><i><b style={{ width: `${hud.bossHp / hud.bossMax * 100}%` }} /></i><em>{hud.bossHp}/{hud.bossMax}</em></div>}
+          <div className="power-history" aria-label="Power-ups collected in this structure">
+            <b className="power-history-title">POWER-UPS THIS ROUND</b>
+            <div className="power-history-items">{hud.powerHistory.length ? hud.powerHistory.map((item) => <span key={item.id} className={`${item.good ? "good" : "bad"} ${item.expired ? "expired" : "active"}`} title={item.instant ? "Used" : item.expired ? "Effect ended" : `${item.remaining} seconds remaining`}><i>{item.good ? "+" : "!"}</i><b>{POWER_LABEL[item.kind]}</b><small>{item.instant ? "USED" : item.expired ? "ENDED" : `${item.remaining}s LEFT`}</small></span>) : <em>NO POWER-UPS YET</em>}</div>
+          </div>
+        </section>
+        <footer className="game-footer"><span>F · FULLSCREEN</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE</span></footer>
+      </aside>
       <div className="game-frame">
         <canvas ref={canvasRef} width={W} height={H} aria-label="Infinite Breaker game area" />
         <button className={`frame-fullscreen ${fullscreen ? "active" : ""}`} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"} onPointerDown={(e) => e.stopPropagation()} onClick={onToggleFullscreen}>⛶<span>{fullscreen ? "EXIT" : "FULL"}</span></button>
-        <div className="corner-label top-left">{session.route.toUpperCase()} ROUTE</div>
-        <div className="corner-label top-right">COMBO {hud.combo}</div>
-        <div className="world-label" style={{ borderColor: worldTheme.accent, color: worldTheme.accent }}>{worldTheme.name}</div>
-        {levelEvent && <div className="event-label">EVENT · {levelEvent}</div>}
         {toast && <div className={`game-toast ${toast.includes("HIGH") ? "record" : ""}`}>{toast}</div>}
         {hud.awaitingLaunch && !paused && <div className="launch-prompt"><strong>READY?</strong><span>CLICK · TAP · SPACE</span><small>AUTO-LAUNCH IN {hud.launchSeconds}</small></div>}
         {tutorial > 0 && <div className="pause-overlay tutorial-overlay"><div className="pause-card tutorial-card"><p>QUICK START · {tutorial}/3</p><h2>{tutorial === 1 ? "MOVE" : tutorial === 2 ? "BUILD STYLE" : "OVERDRIVE"}</h2><span>{tutorial === 1 ? "Move your pointer anywhere on the arena—or drag inside the touch zone below it." : tutorial === 2 ? "Precise hits and uninterrupted destruction raise Combo and your Style Rank." : "Fill the cyan meter. Press Space or ACTIVATE to unleash Fireball, Laser and Magnet together."}</span><button className="big-action" onClick={() => { if (tutorial < 3) setTutorial(tutorial + 1); else { localStorage.setItem("infinite-breaker-tutorial-v2", "done"); setTutorial(0); beginResume(); } }}>{tutorial < 3 ? "NEXT" : "START RUN"}</button><button className="text-button" onClick={() => { localStorage.setItem("infinite-breaker-tutorial-v2", "done"); setTutorial(0); beginResume(); }}>SKIP TUTORIAL</button></div></div>}
@@ -833,7 +836,6 @@ export function BreakerGame({ session, highScore, settings, cosmetics, fullscree
         )}
       </div>
       <div ref={controlRef} className="mobile-control-zone" aria-label="Touch paddle control area"><span>{hud.awaitingLaunch ? "TAP HERE TO LAUNCH · DRAG TO MOVE" : "DRAG ANYWHERE HERE TO MOVE"}</span><i /><button onPointerDown={(e) => e.stopPropagation()} disabled={hud.overdrive < 100 || hud.awaitingLaunch} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡</button></div>
-      <footer className="game-footer"><span>F · FULLSCREEN</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE LAUNCH/OVERDRIVE</span></footer>
     </div>
   );
 }

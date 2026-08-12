@@ -62,3 +62,10 @@ All progress is stored locally in the browser. The Settings screen can export it
 - Removed the double-click fullscreen shortcut and rebuilt fullscreen sizing to keep the arena and HUD clear of overlaps.
 - Replaced Structure Progress with a per-structure Power Log that records every caught power-up.
 - Timed power-ups display a live countdown and become grayed out when their effect ends; instant effects are marked USED.
+
+## Version 2.4
+
+- Fixed premature round completion: every visible block, including armored blocks, must now be destroyed.
+- Armored blocks are durable rather than permanently indestructible and display their remaining hit points.
+- Rebuilt the desktop game layout with every HUD item in a vertical left sidebar and a full-height arena on the right.
+- Enlarged the per-round Power Log with clearer names and prominent live statuses.
