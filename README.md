@@ -19,6 +19,7 @@ A premium, offline-ready brick-breaker roguelite built entirely with Next.js, Re
 
 - Mouse/finger anywhere on the arena: move paddle.
 - Mobile touch zone below the arena: drag anywhere to move paddle.
+- Click, tap or press Space to launch at the beginning of a structure and after losing a life. The ball auto-launches after seven seconds.
 - Arrow keys or A/D: move paddle.
 - Space: activate a full Overdrive meter.
 - R: toggle Risk Drive for higher speed and score.
@@ -41,3 +42,9 @@ npm run build
 ```
 
 All progress is stored locally in the browser. The Settings screen can export it to a JSON file, import it on another device, or reset it after a confirmation step.
+
+## Version 2.1
+
+- Shield and Bottom Wall now perform a real physical bounce before the ball can leave the playfield.
+- Every fresh ball waits for player input and shows its planned direction plus a seven-second auto-launch countdown.
+- If one destructible block remains untouched for twenty seconds, Last Brick Assist destroys it with a lightning strike, particles, flash and camera shake.

@@ -10,7 +10,7 @@ const BAD = ["shrink", "turbo", "gravity", "heavy", "repair", "drain", "curve", 
 type PowerKind = (typeof GOOD)[number] | (typeof BAD)[number] | "life";
 type BrickType = "normal" | "reinforced" | "power" | "glass" | "explosive" | "moving" | "armored" | "core" | "heart" | "electric" | "ice" | "prism" | "gravityBlock" | "mirror" | "phantom" | "regenerator" | "parasite" | "switch" | "comboBlock" | "vault" | "corrupted" | "titan" | "mimic" | "golden";
 
-interface Ball { x: number; y: number; vx: number; vy: number; r: number; stuckUntil: number; trail: Array<{ x: number; y: number; life: number }>; }
+interface Ball { x: number; y: number; vx: number; vy: number; r: number; stuckUntil: number; awaitingLaunch: boolean; autoLaunchAt: number; trail: Array<{ x: number; y: number; life: number }>; }
 interface Brick { id: number; x: number; y: number; w: number; h: number; hp: number; maxHp: number; type: BrickType; vx: number; hiddenPower: boolean; power?: PowerKind; born: number; lastAction: number; }
 interface Drop { x: number; y: number; vy: number; kind: PowerKind; good: boolean; pulse: number; }
 interface Bullet { x: number; y: number; }
@@ -55,6 +55,8 @@ interface GameRuntime {
   timeLeft: number;
   powerCounts: Partial<Record<PowerKind, number>>;
   riskBoost: boolean;
+  singleBrickSince: number;
+  lightningAssist: { x: number; y: number; until: number } | null;
   keys: Set<string>;
 }
 
@@ -129,7 +131,9 @@ function randomLaunchBall(x: number, speed: number, delay: number): Ball {
     vx: Math.sin(angleFromVertical) * speed * direction,
     vy: -Math.cos(angleFromVertical) * speed,
     r: 7,
-    stuckUntil: performance.now() + delay,
+    stuckUntil: 0,
+    awaitingLaunch: true,
+    autoLaunchAt: performance.now() + Math.max(7000, delay),
     trail: [],
   };
 }
@@ -221,7 +225,7 @@ function initialRuntime(session: RunSession): GameRuntime {
     paddleX: W / 2, targetX: W / 2, paddleW: baseW, balls, bricks: generateBricks(session), drops: [], bullets: [], particles: [],
     score: session.score, lives: session.lives, shield: hasUpgrade(session.upgrades, "safety-net") ? 1 : 0,
     effects: { expand: 0, shrink: 0, slow: 0, sticky: 0, fireball: hasUpgrade(session.upgrades, "strong-start") ? now + 8000 : 0, bomb: 0, laser: 0, magnet: 0, turbo: 0, gravity: 0, heavy: 0, curve: 0, orbit: 0, ghost: 0, lightning: 0, blackhole: 0, timestop: 0, ricochet: 0, clone: 0, bottomwall: 0, drone: 0, shockwave: 0, lucky: 0, phoenix: 0, mega: 0, rainbow: 0, scorebank: 0, invert: 0, fake: 0, drift: 0, fog: 0, glitch: 0, leak: 0, storm: 0, tiny: 0, bumper: 0, roulette: 0 },
-    lastTime: now, levelStart: now, lastLaser: 0, announcedHigh: false, ended: false, bricksBroken: 0, powerupsCaught: 0, combo: 0, maxCombo: 0, maxBalls: balls.length, livesSaved: 0, overdrive: 0, overdriveUntil: 0, phoenixUsed: false, shake: 0, timeLeft: session.timeLimit || 0, powerCounts: {}, riskBoost: false, keys: new Set(),
+    lastTime: now, levelStart: now, lastLaser: 0, announcedHigh: false, ended: false, bricksBroken: 0, powerupsCaught: 0, combo: 0, maxCombo: 0, maxBalls: balls.length, livesSaved: 0, overdrive: 0, overdriveUntil: 0, phoenixUsed: false, shake: 0, timeLeft: session.timeLimit || 0, powerCounts: {}, riskBoost: false, singleBrickSince: 0, lightningAssist: null, keys: new Set(),
   };
 }
 
@@ -249,7 +253,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtime = useRef<GameRuntime | null>(null);
   const synth = useRef(new MiniSynth());
-  const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0, bricksLeft: 0, totalBricks: 0, overdrive: 0, style: "D", timeLeft: session.timeLimit || 0, bossHp: 0, bossMax: 0 });
+  const [hud, setHud] = useState({ score: session.score, lives: session.lives, balls: 1, combo: 0, bricksLeft: 0, totalBricks: 0, overdrive: 0, style: "D", timeLeft: session.timeLimit || 0, bossHp: 0, bossMax: 0, awaitingLaunch: true, launchSeconds: 7 });
   const [paused, setPaused] = useState(() => typeof window !== "undefined" && !localStorage.getItem("infinite-breaker-tutorial-v2"));
   const [countdown, setCountdown] = useState<number | null>(null);
   const pausedRef = useRef(false);
@@ -333,6 +337,15 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
     const spawnBall = (delay = 650) => {
       const speed = session.route === "safe" ? 330 : session.route === "risky" ? 430 : 375;
       g.balls.push(randomLaunchBall(g.paddleX, speed, delay));
+    };
+
+    const launchBalls = () => {
+      if (pausedRef.current || g.ended) return false;
+      const waiting = g.balls.filter((ball) => ball.awaitingLaunch);
+      if (!waiting.length) return false;
+      for (const ball of waiting) { ball.awaitingLaunch = false; ball.autoLaunchAt = 0; }
+      setToast("BALL LAUNCHED"); window.setTimeout(() => setToast(""), 700);
+      return true;
     };
 
     const addScore = (amount: number) => {
@@ -483,6 +496,11 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
       }
 
       for (const ball of g.balls) {
+        if (ball.awaitingLaunch) {
+          ball.x = g.paddleX; ball.y = H - 64;
+          if (now >= ball.autoLaunchAt) { ball.awaitingLaunch = false; ball.autoLaunchAt = 0; setToast("AUTO LAUNCH"); window.setTimeout(() => setToast(""), 700); }
+          else continue;
+        }
         if (ball.stuckUntil > now) { ball.x = g.paddleX; ball.y = H - 64; continue; }
         if (ball.stuckUntil !== 0) ball.stuckUntil = 0;
         if (Math.abs(ball.vx) < 58) ball.vx = (ball.vx < 0 ? -1 : 1) * 58;
@@ -498,6 +516,18 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
         if (ball.x - ball.r < 10) { ball.x = 10 + ball.r; ball.vx = Math.abs(ball.vx); }
         if (ball.x + ball.r > W - 10) { ball.x = W - 10 - ball.r; ball.vx = -Math.abs(ball.vx); }
         if (ball.y - ball.r < 10) { ball.y = 10 + ball.r; ball.vy = Math.abs(ball.vy); }
+
+        const safetyY = H - 14;
+        if (ball.vy > 0 && ball.y + ball.r >= safetyY && (g.shield > 0 || active("bottomwall", now))) {
+          ball.y = safetyY - ball.r;
+          ball.vy = -Math.max(280, Math.abs(ball.vy));
+          ball.vx += (Math.random() - .5) * 70;
+          if (g.shield > 0) g.shield--;
+          g.livesSaved++;
+          burst(ball.x, safetyY, "#7cffcb", 22);
+          g.shake = Math.max(g.shake, 11);
+          setToast("SHIELD SAVE!"); window.setTimeout(() => setToast(""), 900);
+        }
 
         const py = H - 52;
         const cloneX = W - g.paddleX;
@@ -555,7 +585,23 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
       }
       g.drops = g.drops.filter((drop) => drop.y < H + 20);
 
-      const breakableLeft = g.bricks.some((b) => b.hp > 0 && b.type !== "armored");
+      const remainingBreakable = g.bricks.filter((brick) => brick.hp > 0 && brick.type !== "armored");
+      if (remainingBreakable.length === 1) {
+        if (!g.singleBrickSince) g.singleBrickSince = now;
+        if (now - g.singleBrickSince >= 20000) {
+          const target = remainingBreakable[0];
+          const strikeX = target.x + target.w / 2; const strikeY = target.y + target.h / 2;
+          g.lightningAssist = { x: strikeX, y: strikeY, until: now + 850 };
+          g.shake = Math.max(g.shake, 20);
+          burst(strikeX, strikeY, "#dffcff", 42);
+          setToast("⚡ LAST BRICK ASSIST");
+          destroyBrick(target);
+          g.singleBrickSince = 0;
+        }
+      } else {
+        g.singleBrickSince = 0;
+      }
+      const breakableLeft = remainingBreakable.some((brick) => brick.hp > 0);
       if (!breakableLeft && !g.ended) {
         g.ended = true; addScore(1000 + session.level * 50);
         window.setTimeout(() => callbacks.current.onLevelClear({ score: g.score, lives: g.lives, bricks: g.bricksBroken, powerups: g.powerupsCaught, combo: g.maxCombo, maxBalls: g.maxBalls, clearMs: performance.now() - g.levelStart, boss: session.level % 10 === 0, livesSaved: g.livesSaved }), 500);
@@ -632,10 +678,27 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
         ctx.shadowBlur = 16; ctx.shadowColor = active("fireball", now) ? "#ff6b35" : theme.accent;
         const ballColor = cosmetics.ball === "plasma" ? "#7cffcb" : cosmetics.ball === "void" ? "#b05cff" : cosmetics.ball === "prism" ? `hsl(${now / 5 % 360} 95% 75%)` : "#fff";
         ctx.fillStyle = active("fireball", now) ? "#fff1a6" : ballColor; ctx.beginPath(); ctx.arc(ball.x, ball.y, active("mega", now) ? ball.r * 1.7 : active("tiny", now) ? ball.r * .65 : ball.r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        if (ball.awaitingLaunch) {
+          const speed = Math.max(1, Math.hypot(ball.vx, ball.vy));
+          ctx.save(); ctx.setLineDash([7, 7]); ctx.strokeStyle = "rgba(255,241,214,.55)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ball.x, ball.y); ctx.lineTo(ball.x + ball.vx / speed * 95, ball.y + ball.vy / speed * 95); ctx.stroke(); ctx.restore();
+        }
       }
       if (active("fake", now)) { ctx.globalAlpha = .32; for (let i = 0; i < 5; i++) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc((now * .09 + i * 183) % W, 150 + ((i * 97 + now * .04) % 330), 7, 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; }
       if (active("fog", now)) { const fog = ctx.createRadialGradient(g.paddleX, H - 80, 70, g.paddleX, H - 80, 370); fog.addColorStop(0, "rgba(14,10,32,0)"); fog.addColorStop(1, "rgba(4,2,10,.82)"); ctx.fillStyle = fog; ctx.fillRect(0, 0, W, H); }
       if (g.overdriveUntil > now) { ctx.strokeStyle = `rgba(124,255,203,${.25 + Math.sin(now / 80) * .15})`; ctx.lineWidth = 8; ctx.strokeRect(8, 8, W - 16, H - 16); }
+      if (g.lightningAssist && now < g.lightningAssist.until) {
+        const strike = g.lightningAssist;
+        ctx.fillStyle = `rgba(220,250,255,${.08 + Math.random() * .15})`; ctx.fillRect(0, 0, W, H);
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        for (let pass = 0; pass < 3; pass++) {
+          ctx.strokeStyle = pass === 0 ? "rgba(255,255,255,.95)" : pass === 1 ? "rgba(124,255,235,.8)" : "rgba(100,170,255,.55)";
+          ctx.lineWidth = pass === 0 ? 3 : 7 + pass * 4; ctx.beginPath(); ctx.moveTo(strike.x + (Math.random() - .5) * 30, 0);
+          const segments = 11;
+          for (let i = 1; i <= segments; i++) { const t = i / segments; ctx.lineTo(strike.x + (Math.random() - .5) * (42 - t * 20), strike.y * t); }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
       ctx.textAlign = "left";
       ctx.restore();
     };
@@ -643,11 +706,17 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
     const loop = (now: number) => {
       const dt = Math.min(0.025, Math.max(0, (now - g.lastTime) / 1000)); g.lastTime = now;
       if (!pausedRef.current && !g.ended) update(now, dt);
+      else if (pausedRef.current) {
+        for (const ball of g.balls) if (ball.awaitingLaunch) ball.autoLaunchAt += dt * 1000;
+        if (g.singleBrickSince) g.singleBrickSince += dt * 1000;
+        g.levelStart += dt * 1000;
+      }
       draw(now);
       if (now - hudTimer > 100) {
         hudTimer = now;
         const breakable = g.bricks.filter((brick) => brick.type !== "armored");
         const boss = g.bricks.find((brick) => brick.type === "core" && brick.hp > 0);
+        const waitingBall = g.balls.find((ball) => ball.awaitingLaunch);
         const style = g.combo >= 50 ? "SSS" : g.combo >= 35 ? "SS" : g.combo >= 24 ? "S" : g.combo >= 15 ? "A" : g.combo >= 8 ? "B" : g.combo >= 3 ? "C" : "D";
         setHud({
           score: g.score,
@@ -661,6 +730,8 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
           timeLeft: g.timeLeft,
           bossHp: boss?.hp || 0,
           bossMax: boss?.maxHp || 0,
+          awaitingLaunch: Boolean(waitingBall),
+          launchSeconds: waitingBall ? Math.max(0, Math.ceil((waitingBall.autoLaunchAt - now) / 1000)) : 0,
         });
       }
       frame = requestAnimationFrame(loop);
@@ -668,10 +739,10 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
 
     const pointFrom = (clientX: number, element: Element) => { const rect = element.getBoundingClientRect(); let x = ((clientX - rect.left) / rect.width) * W; if (active("invert", performance.now())) x = W - x; g.targetX = x; };
     const move = (e: PointerEvent) => pointFrom(e.clientX, canvas);
-    const down = (e: PointerEvent) => { audioReady(); pointFrom(e.clientX, canvas); canvas.setPointerCapture?.(e.pointerId); };
+    const down = (e: PointerEvent) => { audioReady(); pointFrom(e.clientX, canvas); launchBalls(); canvas.setPointerCapture?.(e.pointerId); };
     const control = controlRef.current;
     const controlMove = (e: PointerEvent) => { e.preventDefault(); pointFrom(e.clientX, control || canvas); };
-    const controlDown = (e: PointerEvent) => { audioReady(); controlMove(e); control?.setPointerCapture?.(e.pointerId); };
+    const controlDown = (e: PointerEvent) => { audioReady(); controlMove(e); launchBalls(); control?.setPointerCapture?.(e.pointerId); };
     const keyDown = (e: KeyboardEvent) => {
       g.keys.add(e.code);
       if ((e.code === "Escape" || e.code === "KeyP") && !e.repeat) {
@@ -682,7 +753,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
           setPaused(true);
         }
       }
-      if (e.code === "Space" && !e.repeat) { e.preventDefault(); activateOverdrive(); }
+      if (e.code === "Space" && !e.repeat) { e.preventDefault(); if (!launchBalls()) activateOverdrive(); }
       if (e.code === "KeyR" && !e.repeat) { g.riskBoost = !g.riskBoost; setToast(g.riskBoost ? "RISK DRIVE · SCORE ×1.3" : "RISK DRIVE OFF"); }
     };
     const keyUp = (e: KeyboardEvent) => g.keys.delete(e.code);
@@ -731,6 +802,7 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
         <div className="world-label" style={{ borderColor: worldTheme.accent, color: worldTheme.accent }}>{worldTheme.name}</div>
         {levelEvent && <div className="event-label">EVENT · {levelEvent}</div>}
         {toast && <div className={`game-toast ${toast.includes("HIGH") ? "record" : ""}`}>{toast}</div>}
+        {hud.awaitingLaunch && !paused && <div className="launch-prompt"><strong>READY?</strong><span>CLICK · TAP · SPACE</span><small>AUTO-LAUNCH IN {hud.launchSeconds}</small></div>}
         {tutorial > 0 && <div className="pause-overlay tutorial-overlay"><div className="pause-card tutorial-card"><p>QUICK START · {tutorial}/3</p><h2>{tutorial === 1 ? "MOVE" : tutorial === 2 ? "BUILD STYLE" : "OVERDRIVE"}</h2><span>{tutorial === 1 ? "Move your pointer anywhere on the arena—or drag inside the touch zone below it." : tutorial === 2 ? "Precise hits and uninterrupted destruction raise Combo and your Style Rank." : "Fill the cyan meter. Press Space or ACTIVATE to unleash Fireball, Laser and Magnet together."}</span><button className="big-action" onClick={() => { if (tutorial < 3) setTutorial(tutorial + 1); else { localStorage.setItem("infinite-breaker-tutorial-v2", "done"); setTutorial(0); beginResume(); } }}>{tutorial < 3 ? "NEXT" : "START RUN"}</button><button className="text-button" onClick={() => { localStorage.setItem("infinite-breaker-tutorial-v2", "done"); setTutorial(0); beginResume(); }}>SKIP TUTORIAL</button></div></div>}
         {paused && tutorial === 0 && (
           <div className={`pause-overlay ${countdown !== null ? "counting" : ""}`}>
@@ -751,8 +823,8 @@ export function BreakerGame({ session, highScore, settings, cosmetics, onHighSco
           </div>
         )}
       </div>
-      <div ref={controlRef} className="mobile-control-zone" aria-label="Touch paddle control area"><span>DRAG ANYWHERE HERE TO MOVE</span><i /><button onPointerDown={(e) => e.stopPropagation()} disabled={hud.overdrive < 100} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡</button></div>
-      <footer className="game-footer"><span>RANDOM LAUNCH · ANTI-LOOP · R RISK</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE OVERDRIVE</span></footer>
+      <div ref={controlRef} className="mobile-control-zone" aria-label="Touch paddle control area"><span>{hud.awaitingLaunch ? "TAP HERE TO LAUNCH · DRAG TO MOVE" : "DRAG ANYWHERE HERE TO MOVE"}</span><i /><button onPointerDown={(e) => e.stopPropagation()} disabled={hud.overdrive < 100 || hud.awaitingLaunch} onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }))}>⚡</button></div>
+      <footer className="game-footer"><span>MANUAL LAUNCH · 7S AUTO · R RISK</span><b>{session.mode === "campaign" ? `NEXT REFILL · ${10 - ((session.level - 1) % 10)} STRUCTURES` : `${hud.style} STYLE · ${hud.combo} COMBO`}</b><span>P / ESC · SPACE LAUNCH/OVERDRIVE</span></footer>
     </div>
   );
 }
